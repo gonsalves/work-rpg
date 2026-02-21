@@ -1,4 +1,11 @@
 import { computeEnergyBreakdown } from '../data/EnergyCalculator.js';
+import { CONFIG } from '../utils/Config.js';
+
+function deriveEmail(name, domain) {
+  // "Aprajit Kar" → "aprajit.kar@phonepe.com"
+  // "Elson Jithesh Dsouza" → "elson.jithesh.dsouza@phonepe.com"
+  return name.trim().toLowerCase().replace(/\s+/g, '.') + '@' + domain;
+}
 
 export class DetailPanel {
   constructor(container, store) {
@@ -40,6 +47,15 @@ export class DetailPanel {
     const phasePct = Math.round(breakdown.phaseFactor * 100);
     const discoveryPct = Math.round(breakdown.discoveryRatio * 100);
 
+    // Action button data
+    const email = deriveEmail(person.name, CONFIG.EMAIL_DOMAIN);
+    const calendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE`
+      + `&text=${encodeURIComponent('1:1 with ' + person.name)}`
+      + `&details=${encodeURIComponent('Scheduled from Work RPG')}`
+      + `&add=${encodeURIComponent(email)}`
+      + `&dur=0030`;
+    const sheetUrl = CONFIG.GOOGLE_SHEET_URL + '?q=' + encodeURIComponent(person.name);
+
     this.el.innerHTML = `
       <button class="detail-panel-close">&times;</button>
 
@@ -48,6 +64,33 @@ export class DetailPanel {
         <div>
           <div class="detail-name">${person.name}</div>
           <div class="detail-role">${person.role}</div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Actions</div>
+        <div class="detail-actions">
+          <div class="detail-action-group">
+            <button class="detail-action-btn" data-action="email">
+              <span class="detail-action-icon">&#9993;</span>
+              Send Email
+            </button>
+            <div class="detail-action-chips" data-chips="email">
+              <a class="detail-chip" href="mailto:${email}?subject=${encodeURIComponent('What are you working on?')}" target="_blank">What are you working on?</a>
+              <a class="detail-chip" href="mailto:${email}?subject=${encodeURIComponent('Can you give me an update?')}" target="_blank">Can you give me an update?</a>
+              <a class="detail-chip" href="mailto:${email}?subject=${encodeURIComponent("Let's sync up")}" target="_blank">Let's sync up</a>
+            </div>
+          </div>
+
+          <a class="detail-action-btn" href="${calendarUrl}" target="_blank" rel="noopener">
+            <span class="detail-action-icon">&#128197;</span>
+            Schedule 1:1
+          </a>
+
+          <a class="detail-action-btn" href="${sheetUrl}" target="_blank" rel="noopener">
+            <span class="detail-action-icon">&#128203;</span>
+            View Tasks
+          </a>
         </div>
       </div>
 
@@ -97,6 +140,15 @@ export class DetailPanel {
 
     // Close button
     this.el.querySelector('.detail-panel-close').addEventListener('click', () => this.close());
+
+    // Email chips toggle
+    const emailBtn = this.el.querySelector('[data-action="email"]');
+    const emailChips = this.el.querySelector('[data-chips="email"]');
+    if (emailBtn && emailChips) {
+      emailBtn.addEventListener('click', () => {
+        emailChips.classList.toggle('expanded');
+      });
+    }
   }
 
   _renderTask(task, breakdown) {

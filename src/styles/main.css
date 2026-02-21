@@ -204,6 +204,76 @@ body {
   transition: width 0.4s ease;
 }
 
+/* Action buttons in detail panel */
+.detail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.detail-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.02);
+  color: #2c2c2c;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+}
+
+.detail-action-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+.detail-action-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.detail-action-chips {
+  display: none;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 0 4px 28px;
+}
+
+.detail-action-chips.expanded {
+  display: flex;
+}
+
+.detail-chip {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 14px;
+  background: rgba(0, 120, 215, 0.08);
+  color: #0078D7;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.detail-chip:hover {
+  background: rgba(0, 120, 215, 0.16);
+}
+
 /* Task list in detail panel */
 .task-item {
   padding: 12px;

@@ -2,8 +2,7 @@ import * as THREE from 'three';
 import { MazeBuilder } from './MazeBuilder.js';
 import { ExecutionZone } from './ExecutionZone.js';
 import { CommonAreas } from './CommonAreas.js';
-import { PALETTE } from '../utils/Colors.js';
-import { createTextSprite } from '../utils/Geometry.js';
+
 
 /*
   Office Layout — Left-to-right journey flow:
@@ -44,7 +43,6 @@ export class Office {
     this.common = new CommonAreas();
 
     this._positionZones();
-    this._buildZoneLabels();
   }
 
   _positionZones() {
@@ -76,22 +74,6 @@ export class Office {
     this.group.add(this.maze.getGroup());
     this.group.add(this.execution.getGroup());
     this.group.add(this.common.getGroup());
-  }
-
-  _buildZoneLabels() {
-    const mazeWorldWidth = this.mazeCols * 2;
-    const execX = this.lobbyWidth + mazeWorldWidth;
-
-    const labels = [
-      { text: 'DISCOVERY', x: this.lobbyWidth + mazeWorldWidth / 2, z: 1.5, color: PALETTE.BLUE },
-      { text: 'EXECUTION', x: execX + this.executionWidth / 2, z: 1.5, color: PALETTE.ORANGE },
-    ];
-
-    for (const { text, x, z, color } of labels) {
-      const sprite = createTextSprite(text, 42, color);
-      sprite.position.set(x, 3.5, z);
-      this.group.add(sprite);
-    }
   }
 
   _totalWidth() {
