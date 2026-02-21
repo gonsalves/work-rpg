@@ -1,0 +1,229 @@
+import { TaskForm } from './TaskForm.js';
+import { PALETTE } from '../utils/Colors.js';
+import { computeEnergy } from '../data/EnergyCalculator.js';
+
+export class EditorPanel {
+  constructor(container, store) {
+    this.store = store;
+    this.container = container;
+    this.isOpen = false;
+    this.expandedPersonId = null;
+
+    this.el = document.createElement('div');
+    this.el.className = 'editor-panel';
+    container.appendChild(this.el);
+
+    this.store.on('change', () => {
+      if (this.isOpen) this._render();
+    });
+  }
+
+  toggle() {
+    this.isOpen = !this.isOpen;
+    if (this.isOpen) {
+      this._render();
+      this.el.classList.add('open');
+    } else {
+      this.el.classList.remove('open');
+    }
+  }
+
+  _render() {
+    const people = this.store.getPeople();
+
+    this.el.innerHTML = `
+      <div class="editor-header">
+        <h2>Team Editor</h2>
+        <button class="btn btn-primary btn-small" data-action="add-person">+ Add Person</button>
+      </div>
+      <div class="editor-content">
+        ${people.map(p => this._renderPerson(p)).join('')}
+        ${people.length === 0 ? '<p style="color:#999;text-align:center;padding:20px;">No team members yet. Add someone!</p>' : ''}
+      </div>
+    `;
+
+    // Bind events
+    this.el.querySelector('[data-action="add-person"]').addEventListener('click', () => {
+      this._showPersonForm();
+    });
+
+    // Person headers (expand/collapse)
+    this.el.querySelectorAll('.person-header').forEach(header => {
+      header.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        const personId = header.dataset.personId;
+        this.expandedPersonId = this.expandedPersonId === personId ? null : personId;
+        this._render();
+      });
+    });
+
+    // Edit person buttons
+    this.el.querySelectorAll('[data-action="edit-person"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._showPersonForm(btn.dataset.personId);
+      });
+    });
+
+    // Delete person buttons
+    this.el.querySelectorAll('[data-action="delete-person"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.store.removePerson(btn.dataset.personId);
+      });
+    });
+
+    // Add task buttons
+    this.el.querySelectorAll('[data-action="add-task"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._showTaskForm(btn.dataset.personId);
+      });
+    });
+
+    // Edit task buttons
+    this.el.querySelectorAll('[data-action="edit-task"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._showTaskForm(btn.dataset.personId, btn.dataset.taskId);
+      });
+    });
+
+    // Delete task buttons
+    this.el.querySelectorAll('[data-action="delete-task"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.store.removeTask(btn.dataset.personId, btn.dataset.taskId);
+      });
+    });
+  }
+
+  _renderPerson(person) {
+    const energy = computeEnergy(person);
+    const energyPct = Math.round(energy * 100);
+    const isExpanded = this.expandedPersonId === person.id;
+
+    return `
+      <div class="person-row">
+        <div class="person-header" data-person-id="${person.id}">
+          <div class="person-color-swatch" style="background:${person.color};"></div>
+          <div class="person-info">
+            <div class="person-info-name">${person.name}</div>
+            <div class="person-info-role">${person.role} &middot; ${person.tasks.length} task${person.tasks.length !== 1 ? 's' : ''} &middot; ${energyPct}% energy</div>
+          </div>
+          <button class="btn btn-ghost btn-small" data-action="edit-person" data-person-id="${person.id}">Edit</button>
+          <button class="btn btn-danger btn-small" data-action="delete-person" data-person-id="${person.id}">&times;</button>
+        </div>
+        <div class="person-tasks ${isExpanded ? 'expanded' : ''}">
+          ${person.tasks.map(t => this._renderTaskRow(person.id, t)).join('')}
+          <button class="btn btn-ghost btn-small" data-action="add-task" data-person-id="${person.id}" style="margin-top:8px;">+ Add Task</button>
+          <div class="task-form-container" data-person-id="${person.id}"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderTaskRow(personId, task) {
+    return `
+      <div class="task-item" style="display:flex;align-items:center;gap:8px;">
+        <div style="flex:1;">
+          <div class="task-name" style="font-size:13px;">${task.name}</div>
+          <div style="display:flex;gap:12px;font-size:11px;color:#999;">
+            <span>${task.percentComplete}% done</span>
+            <span style="color:#0078D7;">D:${task.discoveryPercent}%</span>
+            <span style="color:#FF6F00;">E:${task.executionPercent}%</span>
+            <span>${task.expectedDate}</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-small" data-action="edit-task" data-person-id="${personId}" data-task-id="${task.id}">Edit</button>
+        <button class="btn btn-danger btn-small" data-action="delete-task" data-person-id="${personId}" data-task-id="${task.id}">&times;</button>
+      </div>
+    `;
+  }
+
+  _showPersonForm(personId = null) {
+    const person = personId ? this.store.getPerson(personId) : null;
+    const isEdit = !!person;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:100;display:flex;align-items:center;justify-content:center;pointer-events:auto;';
+
+    const form = document.createElement('div');
+    form.style.cssText = 'background:white;border-radius:12px;padding:24px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.15);';
+    form.innerHTML = `
+      <h3 style="margin-bottom:16px;">${isEdit ? 'Edit' : 'Add'} Person</h3>
+      <div class="form-group">
+        <label>Name</label>
+        <input type="text" name="name" value="${person?.name || ''}" placeholder="Full name" />
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <input type="text" name="role" value="${person?.role || ''}" placeholder="Job title" />
+      </div>
+      <div class="form-group">
+        <label>Avatar Color</label>
+        <input type="color" name="color" value="${person?.color || PALETTE.AVATAR_COLORS[Math.floor(Math.random() * PALETTE.AVATAR_COLORS.length)]}" />
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" data-action="save">${isEdit ? 'Update' : 'Add'}</button>
+        <button class="btn btn-ghost" data-action="cancel">Cancel</button>
+      </div>
+    `;
+
+    overlay.appendChild(form);
+    this.container.appendChild(overlay);
+
+    form.querySelector('[data-action="save"]').addEventListener('click', () => {
+      const name = form.querySelector('[name="name"]').value.trim();
+      const role = form.querySelector('[name="role"]').value.trim();
+      const color = form.querySelector('[name="color"]').value;
+
+      if (!name) {
+        form.querySelector('[name="name"]').style.borderColor = '#E8422F';
+        return;
+      }
+
+      if (isEdit) {
+        this.store.updatePerson(personId, { name, role, color });
+      } else {
+        const newPerson = this.store.addPerson({ name, role, color });
+        this.expandedPersonId = newPerson.id;
+      }
+      overlay.remove();
+    });
+
+    form.querySelector('[data-action="cancel"]').addEventListener('click', () => {
+      overlay.remove();
+    });
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+  }
+
+  _showTaskForm(personId, taskId = null) {
+    const person = this.store.getPerson(personId);
+    if (!person) return;
+    const task = taskId ? person.tasks.find(t => t.id === taskId) : null;
+
+    const container = this.el.querySelector(`.task-form-container[data-person-id="${personId}"]`);
+    if (!container) return;
+
+    // Clear any existing form
+    container.innerHTML = '';
+
+    const form = new TaskForm(
+      task,
+      (data) => {
+        if (taskId) {
+          this.store.updateTask(personId, taskId, data);
+        } else {
+          this.store.addTask(personId, data);
+        }
+        container.innerHTML = '';
+      },
+      () => {
+        container.innerHTML = '';
+      }
+    );
+
+    container.appendChild(form.getElement());
+  }
+}
