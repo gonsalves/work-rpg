@@ -12,6 +12,10 @@ export class AvatarManager {
     this.offset = offset;
     this.avatars = new Map(); // personId -> Avatar
 
+    // Per-avatar work/wander cycle state for desk workers
+    // personId -> { phase, timer, deskIndex, chairWorldX, chairWorldZ, chairFacingAngle }
+    this._workCycles = new Map();
+
     // Cache obstacles for execution zone (world coordinates) with avatar padding
     this._execObstacles = this._buildExecObstacles();
     // Cache execution zone world bounds for wide wandering
@@ -64,6 +68,7 @@ export class AvatarManager {
         this.scene.remove(avatar.group);
         avatar.dispose();
         this.avatars.delete(id);
+        this._workCycles.delete(id);
       }
     }
 
@@ -104,6 +109,7 @@ export class AvatarManager {
   }
 
   _positionInLobby(avatar, person) {
+    this._cancelSitting(avatar, person.id);
     const center = this.office.getCommon().getLobbyCenter();
     const cx = center.x + this.offset.x;
     const cz = center.z + this.offset.z;
@@ -139,6 +145,7 @@ export class AvatarManager {
   }
 
   _positionInMaze(avatar, person, discoveryRatio) {
+    this._cancelSitting(avatar, person.id);
     const maze = this.office.getMaze();
     const normalizedDepth = (discoveryRatio - 0.5) * 2;
     const cell = maze.getCellAtDepth(normalizedDepth);
@@ -202,9 +209,34 @@ export class AvatarManager {
 
     // Give execution avatars a collision checker for per-step avoidance
     avatar.setCollisionChecker((x, z) => mgr._isBlockedByDesk(x, z));
+
+    // Work/wander cycle: compute chair world position and initialize cycle
+    const chair = execution.getChairPosition(index);
+    const chairWorldX = execGroup.position.x + chair.x + this.offset.x;
+    const chairWorldZ = execGroup.position.z + chair.z + this.offset.z;
+
+    if (!this._workCycles.has(person.id)) {
+      // Stagger initial timing so avatars don't all sit at once
+      this._workCycles.set(person.id, {
+        phase: 'wandering',
+        timer: 1.0 + Math.random() * 4.0,
+        deskIndex: index,
+        chairWorldX,
+        chairWorldZ,
+        chairFacingAngle: chair.facingAngle,
+      });
+    } else {
+      // Update chair coords in case of desk reassignment
+      const cycle = this._workCycles.get(person.id);
+      cycle.deskIndex = index;
+      cycle.chairWorldX = chairWorldX;
+      cycle.chairWorldZ = chairWorldZ;
+      cycle.chairFacingAngle = chair.facingAngle;
+    }
   }
 
   _positionInBreakRoom(avatar, person) {
+    this._cancelSitting(avatar, person.id);
     const center = this.office.getCommon().getBreakRoomCenter();
     const cx = center.x + this.offset.x;
     const cz = center.z + this.offset.z;
@@ -243,6 +275,78 @@ export class AvatarManager {
     for (const avatar of this.avatars.values()) {
       avatar.update(dt, this._camera);
     }
+    this._updateWorkCycles(dt);
+  }
+
+  _updateWorkCycles(dt) {
+    for (const [personId, cycle] of this._workCycles) {
+      const avatar = this.avatars.get(personId);
+      if (!avatar) {
+        this._workCycles.delete(personId);
+        continue;
+      }
+
+      // Skip if avatar is relocating to a new zone or in the maze
+      if (avatar.isRelocating || avatar.isInMaze) continue;
+
+      switch (cycle.phase) {
+        case 'wandering': {
+          cycle.timer -= dt;
+          if (cycle.timer <= 0) {
+            cycle.phase = 'going_to_sit';
+            avatar.startSitting({
+              x: cycle.chairWorldX,
+              z: cycle.chairWorldZ,
+              facingAngle: cycle.chairFacingAngle,
+            });
+          }
+          break;
+        }
+
+        case 'going_to_sit': {
+          if (avatar.sittingState === 'seated') {
+            cycle.phase = 'sitting';
+          }
+          // If avatar got reset (e.g. relocated), go back to wandering
+          if (avatar.sittingState === 'idle' && !avatar.isRelocating) {
+            cycle.phase = 'wandering';
+            cycle.timer = 2 + Math.random() * 3;
+          }
+          break;
+        }
+
+        case 'sitting': {
+          // Wait for avatar to finish working and stand up on its own
+          if (avatar.sittingState === 'idle') {
+            cycle.phase = 'post_work_wander';
+            cycle.timer = 3 + Math.random() * 5; // wander 3–8 seconds
+          }
+          break;
+        }
+
+        case 'post_work_wander': {
+          cycle.timer -= dt;
+          if (cycle.timer <= 0) {
+            cycle.phase = 'going_to_sit';
+            avatar.startSitting({
+              x: cycle.chairWorldX,
+              z: cycle.chairWorldZ,
+              facingAngle: cycle.chairFacingAngle,
+            });
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  _cancelSitting(avatar, personId) {
+    if (avatar.isSitting()) {
+      avatar.sittingState = 'idle';
+      avatar.sittingTransition = 0;
+      avatar.chairTarget = null;
+    }
+    this._workCycles.delete(personId);
   }
 
   setCamera(camera) {

@@ -22,7 +22,8 @@ export class ExecutionZone {
     this.width = width;
     this.depth = depth;
     this.group = new THREE.Group();
-    this.deskPositions = []; // { x, z, index }
+    this.deskPositions = [];  // { x, z, index } — avatar standing home (behind chair)
+    this.chairPositions = []; // { x, z, facingAngle, index } — actual chair seat
 
     // Two pods, vertically arranged
     this.pods = [
@@ -67,6 +68,16 @@ export class ExecutionZone {
         const homeX = pod.cx + q.sx * (DESK_OFFSET + HOME_DIST);
         const homeZ = pod.cz + q.sz * DESK_Z_OFFSET;
         this.deskPositions.push({ x: homeX, z: homeZ, index });
+
+        // Chair seat is at local (0, 0.45, +0.9) in desk unit space.
+        // Transform through the unit's Y-rotation to get ExecutionZone-local position.
+        const chairLocalZ = 0.9;
+        const chairX = deskX + chairLocalZ * Math.sin(q.angle);
+        const chairZ = deskZ + chairLocalZ * Math.cos(q.angle);
+        // Person faces toward monitor: local -Z direction rotated by angle
+        const seatedFacingAngle = -q.angle;
+        this.chairPositions.push({ x: chairX, z: chairZ, facingAngle: seatedFacingAngle, index });
+
         index++;
       }
     }
@@ -187,6 +198,11 @@ export class ExecutionZone {
   getDeskPosition(index) {
     if (this.deskPositions.length === 0) return { x: 0, z: 0 };
     return this.deskPositions[index % this.deskPositions.length];
+  }
+
+  getChairPosition(index) {
+    if (this.chairPositions.length === 0) return { x: 0, z: 0, facingAngle: 0 };
+    return this.chairPositions[index % this.chairPositions.length];
   }
 
   getObstacles() {

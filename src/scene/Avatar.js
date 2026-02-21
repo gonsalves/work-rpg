@@ -22,6 +22,12 @@ export class Avatar {
     this.facingAngle = 0;
     this._initialized = false;
 
+    // Sitting state machine
+    this.sittingState = 'idle'; // 'idle' | 'walking_to_chair' | 'sitting_down' | 'seated' | 'standing_up'
+    this.sittingTransition = 0; // 0..1 progress for sit/stand transitions
+    this.chairTarget = null;    // { x, z, facingAngle } world position of chair
+    this.workDuration = 0;      // how long to work this session
+
     // Collision-aware wander target picker, set by AvatarManager per zone
     // Signature: () => { x, z } | null
     this._pickWanderTarget = null;
@@ -134,17 +140,24 @@ export class Avatar {
   }
 
   update(dt, camera) {
-    if (this.isRelocating) {
+    if (this.sittingState !== 'idle') {
+      this._updateSitting(dt);
+      // Only play walk animation when walking to chair (not while sitting/standing)
+      if (this.sittingState === 'walking_to_chair') {
+        this._updateWalkAnimation(dt);
+      }
+    } else if (this.isRelocating) {
       this._moveToward(this.homePosition, 3, dt);
       if (this.group.position.distanceTo(this.homePosition) < 0.2) {
         this.isRelocating = false;
         this.wanderTimer = 0.5;
       }
+      this._updateWalkAnimation(dt);
     } else {
       this._updateWander(dt);
+      this._updateWalkAnimation(dt);
     }
 
-    this._updateWalkAnimation(dt);
     this._updateDistress(dt);
     this.energyBar.update(dt, camera);
   }
@@ -160,7 +173,8 @@ export class Avatar {
       const nz = this.group.position.z + (dz / dist) * step;
 
       // Per-step collision check: if next position is blocked, pick a new target
-      if (this._isBlocked && this._isBlocked(nx, nz)) {
+      // Skip when walking to chair — avatar must pass through desk obstacle
+      if (this._isBlocked && this.sittingState !== 'walking_to_chair' && this._isBlocked(nx, nz)) {
         this.wanderTimer = 0; // force picking a new target next frame
         this._faceDirection(dx, dz, dt);
         return;
@@ -170,6 +184,116 @@ export class Avatar {
       this.group.position.z = nz;
       this._faceDirection(dx, dz, dt);
     }
+  }
+
+  // --- Sitting behavior ---
+
+  startSitting(chairTarget) {
+    this.chairTarget = chairTarget; // { x, z, facingAngle }
+    this.sittingState = 'walking_to_chair';
+    this.workDuration = 8 + Math.random() * 7; // 8–15 seconds at the desk
+    this.wanderTarget.set(chairTarget.x, 0, chairTarget.z);
+  }
+
+  startStanding() {
+    this.sittingState = 'standing_up';
+    this.sittingTransition = 1.0; // will lerp from 1 → 0
+  }
+
+  isSitting() {
+    return this.sittingState !== 'idle';
+  }
+
+  _updateSitting(dt) {
+    switch (this.sittingState) {
+      case 'walking_to_chair': {
+        const chairPos = new THREE.Vector3(this.chairTarget.x, 0, this.chairTarget.z);
+        this._moveToward(chairPos, 1.8, dt);
+
+        if (this.group.position.distanceTo(chairPos) < 0.15) {
+          // Snap to chair and face the monitor
+          this.group.position.x = this.chairTarget.x;
+          this.group.position.z = this.chairTarget.z;
+          this.facingAngle = this.chairTarget.facingAngle;
+          this.group.rotation.y = this.facingAngle;
+
+          this.sittingState = 'sitting_down';
+          this.sittingTransition = 0;
+        }
+        break;
+      }
+
+      case 'sitting_down': {
+        this.sittingTransition = Math.min(1, this.sittingTransition + dt * 2.0);
+        this._applySittingPose(this.sittingTransition);
+
+        if (this.sittingTransition >= 1) {
+          this.sittingState = 'seated';
+        }
+        break;
+      }
+
+      case 'seated': {
+        this._applySittingPose(1.0);
+        this._updateTypingAnimation(dt);
+
+        this.workDuration -= dt;
+        if (this.workDuration <= 0) {
+          this.startStanding();
+        }
+        break;
+      }
+
+      case 'standing_up': {
+        this.sittingTransition = Math.max(0, this.sittingTransition - dt * 2.0);
+        this._applySittingPose(this.sittingTransition);
+
+        if (this.sittingTransition <= 0) {
+          this.sittingState = 'idle';
+          this.chairTarget = null;
+          this.wanderTimer = 0.2 + Math.random() * 0.5;
+        }
+        break;
+      }
+    }
+  }
+
+  _applySittingPose(t) {
+    // Smoothstep easing for natural transitions
+    const s = t * t * (3 - 2 * t);
+
+    // Standing → Seated pose interpolation
+    // Torso: 0.92 → 0.775 (bottom aligns with chair seat at Y=0.45)
+    this.torso.position.y = lerp(0.92, 0.775, s);
+    // Head: 1.45 → 1.305 (maintains offset from torso)
+    this.head.position.y = lerp(1.45, 1.305, s);
+
+    // Legs: rotate forward ~75° to appear bent at the knees
+    const legRotX = lerp(0, -1.3, s);
+    this.leftLeg.rotation.x = legRotX;
+    this.rightLeg.rotation.x = legRotX;
+    this.leftLeg.position.y = lerp(0.3, 0.35, s);
+    this.rightLeg.position.y = lerp(0.3, 0.35, s);
+
+    // Arms: lower with torso, angle forward toward keyboard
+    const armRotX = lerp(0, -0.6, s);
+    this.leftArm.position.y = lerp(0.9, 0.65, s);
+    this.rightArm.position.y = lerp(0.9, 0.65, s);
+    this.leftArm.rotation.x = armRotX;
+    this.rightArm.rotation.x = armRotX;
+  }
+
+  _updateTypingAnimation(dt) {
+    this.walkPhase += dt * 3;
+
+    // Subtle arm oscillation to simulate typing
+    const typing = Math.sin(this.walkPhase * 2) * 0.08;
+    this.leftArm.rotation.x = -0.6 + typing;
+    this.rightArm.rotation.x = -0.6 - typing; // opposite phase
+
+    // Very subtle head bob (looking at screen)
+    const headBob = Math.sin(this.walkPhase * 0.5) * 0.008;
+    this.head.position.y = 1.305 + headBob;
   }
 
   _updateWander(dt) {
