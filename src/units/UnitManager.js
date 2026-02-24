@@ -104,7 +104,6 @@ export class UnitManager {
     const tasks = this.store.getTasksForPerson(person.id);
 
     if (tasks.length === 0) {
-      // No work assigned — go scout unexplored territory
       this._assignScoutMission(unit);
       return;
     }

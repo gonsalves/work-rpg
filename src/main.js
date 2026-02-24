@@ -107,45 +107,7 @@ async function boot() {
   unitManager.setStructurePositions(structurePositions);
   unitManager.refresh();
 
-  // --- Interaction ---
-  const raycaster = new Raycaster(camera, renderer, unitManager, gameMap);
-  const tooltip = new Tooltip(uiRoot);
-
-  // --- UI ---
-  const detailPanel = new DetailPanel(uiRoot, store);
-  detailPanel.setUnitManager(unitManager);
-  const toolbar = new Toolbar(uiRoot);
-  const editorPanel = new EditorPanel(uiRoot, store);
-
-  // Wire events
-  toolbar.onToggleEditor(() => editorPanel.toggle());
-
-  raycaster.onAvatarClick((personId) => detailPanel.open(personId));
-
-  raycaster.onAvatarHover((personId, screenPos) => {
-    if (personId) {
-      const person = store.getPerson(personId);
-      if (person) tooltip.show(person.name, screenPos.x, screenPos.y);
-    } else {
-      tooltip.hide();
-    }
-  });
-
-  store.on('change', () => {
-    unitManager.refresh();
-    detailPanel.refresh();
-
-    // Update structure progress
-    for (const sp of structurePositions) {
-      const ms = store.getMilestone(sp.milestoneId);
-      if (ms) {
-        const progress = computeStructureProgress(ms, store.getTasks());
-        gameMap.setStructureProgress(sp.milestoneId, progress);
-      }
-    }
-  });
-
-  // --- Render loop ---
+  // --- Render loop (start early so scene is always live) ---
   let lastTime = performance.now();
 
   function animate(now) {
@@ -161,6 +123,49 @@ async function boot() {
 
   requestAnimationFrame(animate);
 
+  // --- Interaction ---
+  let raycaster, tooltip, detailPanel, toolbar, editorPanel;
+  try {
+    raycaster = new Raycaster(camera, renderer, unitManager, gameMap);
+    tooltip = new Tooltip(uiRoot);
+
+    // --- UI ---
+    detailPanel = new DetailPanel(uiRoot, store);
+    detailPanel.setUnitManager(unitManager);
+    toolbar = new Toolbar(uiRoot);
+    editorPanel = new EditorPanel(uiRoot, store);
+
+    // Wire events
+    toolbar.onToggleEditor(() => editorPanel.toggle());
+
+    raycaster.onAvatarClick((personId) => detailPanel.open(personId));
+
+    raycaster.onAvatarHover((personId, screenPos) => {
+      if (personId) {
+        const person = store.getPerson(personId);
+        if (person) tooltip.show(person.name, screenPos.x, screenPos.y);
+      } else {
+        tooltip.hide();
+      }
+    });
+  } catch (err) {
+    console.error('[boot] UI init error:', err);
+  }
+
+  store.on('change', () => {
+    unitManager.refresh();
+    if (detailPanel) detailPanel.refresh();
+
+    // Update structure progress
+    for (const sp of structurePositions) {
+      const ms = store.getMilestone(sp.milestoneId);
+      if (ms) {
+        const progress = computeStructureProgress(ms, store.getTasks());
+        gameMap.setStructureProgress(sp.milestoneId, progress);
+      }
+    }
+  });
+
   // Periodic sync from external data source
   if (CONFIG.DATA_SOURCE !== 'seed' && CONFIG.SYNC_INTERVAL_MS > 0) {
     setInterval(async () => {
@@ -169,4 +174,4 @@ async function boot() {
   }
 }
 
-boot();
+boot().catch(err => console.error('[boot] Fatal:', err));

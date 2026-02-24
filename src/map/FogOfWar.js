@@ -41,6 +41,7 @@ export class FogOfWar {
     );
     this._texture.minFilter = THREE.LinearFilter;
     this._texture.magFilter = THREE.LinearFilter;
+    this._texture.flipY = true; // match grid row 0 → low Z after plane rotateX
     this._texture.needsUpdate = true;
 
     this._buildFogMesh();
