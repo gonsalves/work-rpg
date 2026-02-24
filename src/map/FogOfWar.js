@@ -31,10 +31,10 @@ export class FogOfWar {
       this._texData[i * 4 + 0] = fogR;
       this._texData[i * 4 + 1] = fogG;
       this._texData[i * 4 + 2] = fogB;
-      this._texData[i * 4 + 3] = 255; // A (fully opaque)
-      this._revealFloor[i] = 1.0;
-      this._targetAlpha[i] = 1.0;
-      this._currentAlpha[i] = 1.0;
+      this._texData[i * 4 + 3] = 242; // 0.95 — slightly translucent for smoky look
+      this._revealFloor[i] = 0.95;
+      this._targetAlpha[i] = 0.95;
+      this._currentAlpha[i] = 0.95;
     }
 
     this._texture = new THREE.DataTexture(
@@ -74,7 +74,7 @@ export class FogOfWar {
   revealRadius(centerCol, centerRow, radius) {
     const revealed = this.grid.revealTilesInRadius(centerCol, centerRow, radius);
     for (const { col, row } of revealed) {
-      this._setRevealFloor(col, row, 0.55);
+      this._setRevealFloor(col, row, this._smokyAlpha(col, row));
     }
     // Center area starts fully visible
     const centerTiles = this.grid.getTilesInRadius(
@@ -121,8 +121,8 @@ export class FogOfWar {
 
         const idx = tr * this._texWidth + tc;
         this._targetAlpha[idx] = 0.0;
-        // Also permanently lower the reveal floor
-        this._revealFloor[idx] = Math.min(this._revealFloor[idx], 0.55);
+        // Also permanently lower the reveal floor (smoky variation)
+        this._revealFloor[idx] = Math.min(this._revealFloor[idx], this._smokyAlpha(tc, tr));
       }
 
       // Outer ring: reveal but semi-transparent
@@ -131,7 +131,7 @@ export class FogOfWar {
         if (tile.fogState === FogState.HIDDEN) {
           tile.fogState = FogState.REVEALED;
           const idx = tr * this._texWidth + tc;
-          this._revealFloor[idx] = Math.min(this._revealFloor[idx], 0.55);
+          this._revealFloor[idx] = Math.min(this._revealFloor[idx], this._smokyAlpha(tc, tr));
         }
       }
     }
@@ -146,6 +146,17 @@ export class FogOfWar {
     const idx = row * this._texWidth + col;
     this._revealFloor[idx] = Math.min(this._revealFloor[idx], alpha);
     this._targetAlpha[idx] = Math.min(this._targetAlpha[idx], alpha);
+  }
+
+  /** Deterministic per-tile hash (0–1) for smoky fog variation. */
+  _tileHash(col, row) {
+    const n = Math.sin(col * 127.1 + row * 311.7) * 43758.5453;
+    return n - Math.floor(n);
+  }
+
+  /** Per-tile reveal alpha with noise — creates patchy smoke effect. */
+  _smokyAlpha(col, row) {
+    return 0.25 + this._tileHash(col, row) * 0.22;
   }
 
   /**

@@ -309,14 +309,14 @@ export class UnitManager {
     // Update fog visibility based on unit positions
     this.fog.updateVisibility(unitPositions);
 
-    // Update resource node visibility based on discovery
+    // Update resource node visibility — only show when a unit is nearby
     for (const [taskId, pos] of this._resourceNodePositions) {
-      // Mark as discovered when a unit is close enough (VISIBLE fog state)
+      // Track discovered nodes for AI behavior decisions
       if (this.fog.isVisible(pos.col, pos.row)) {
         this._discoveredNodes.add(taskId);
       }
-      // Only show nodes that have been discovered (persist after fog re-covers)
-      this.map.setResourceNodeVisible(taskId, this._discoveredNodes.has(taskId));
+      // Visually show only when fog is fully clear (unit nearby)
+      this.map.setResourceNodeVisible(taskId, this.fog.isVisible(pos.col, pos.row));
     }
   }
 
