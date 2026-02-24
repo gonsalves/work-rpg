@@ -408,6 +408,12 @@ export class GameMap {
     return pickables;
   }
 
+  getStructureWorldPosition(milestoneId) {
+    const group = this._structureGroups.get(milestoneId);
+    if (!group) return null;
+    return { x: group.userData._wx, z: group.userData._wz };
+  }
+
   getStructurePickables() {
     const pickables = [];
     for (const group of this._structureGroups.values()) {

@@ -16,6 +16,7 @@ import { Toolbar } from './ui/Toolbar.js';
 import { EditorPanel } from './ui/EditorPanel.js';
 import { SettingsPanel } from './ui/SettingsPanel.js';
 import { DetailPanel } from './ui/DetailPanel.js';
+import { StructurePopup } from './ui/StructurePopup.js';
 import { CONFIG } from './utils/Config.js';
 import { resourceColorForCategory } from './utils/Colors.js';
 import { computeStructureProgress } from './data/ResourceCalculator.js';
@@ -314,13 +315,14 @@ async function boot() {
     animalManager.update(dt, unitManager.getScenePositions());
     gameMap.update(dt);
     fog.update(dt);
+    if (structurePopup) structurePopup.updatePosition();
     sceneManager.render();
   }
 
   requestAnimationFrame(animate);
 
   // --- Interaction ---
-  let raycaster, tooltip, detailPanel, toolbar, editorPanel;
+  let raycaster, tooltip, detailPanel, structurePopup, toolbar, editorPanel;
   try {
     raycaster = new Raycaster(camera, renderer, unitManager, gameMap);
     tooltip = new Tooltip(uiRoot);
@@ -328,6 +330,8 @@ async function boot() {
     // --- UI ---
     detailPanel = new DetailPanel(uiRoot, store);
     detailPanel.setUnitManager(unitManager);
+    structurePopup = new StructurePopup(uiRoot, store);
+    structurePopup.setCamera(camera);
     toolbar = new Toolbar(uiRoot);
     editorPanel = new EditorPanel(uiRoot, store);
 
@@ -364,8 +368,20 @@ async function boot() {
     toolbar.onToggleSettings(() => settingsPanel.toggle());
     toolbar.onToggleEditor(() => editorPanel.toggle());
 
-    raycaster.onAvatarClick((personId) => detailPanel.open(personId));
-    raycaster.onStructureClick((milestoneId) => detailPanel.openMilestone(milestoneId));
+    raycaster.onAvatarClick((personId) => {
+      if (structurePopup) structurePopup.close();
+      detailPanel.open(personId);
+    });
+    raycaster.onStructureClick((milestoneId) => {
+      const pos = gameMap.getStructureWorldPosition(milestoneId);
+      if (pos && structurePopup) {
+        structurePopup.open(milestoneId, pos.x + offset.x, pos.z + offset.z);
+      }
+    });
+    structurePopup.onPersonClick((pid) => {
+      structurePopup.close();
+      detailPanel.open(pid);
+    });
 
     raycaster.onAvatarHover((personId, screenPos) => {
       if (personId) {
@@ -382,6 +398,7 @@ async function boot() {
   store.on('change', () => {
     unitManager.refresh();
     if (detailPanel) detailPanel.refresh();
+    if (structurePopup) structurePopup.refresh();
 
     // Update structure progress
     for (const sp of structurePositions) {

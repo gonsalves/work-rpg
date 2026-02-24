@@ -1,4 +1,4 @@
-import { computeStaminaBreakdown, computeStructureProgress } from '../data/ResourceCalculator.js';
+import { computeStaminaBreakdown } from '../data/ResourceCalculator.js';
 import { UnitStateLabels } from '../units/UnitState.js';
 import { CONFIG } from '../utils/Config.js';
 
@@ -10,7 +10,6 @@ export class DetailPanel {
   constructor(container, store) {
     this.store = store;
     this.personId = null;
-    this.milestoneId = null;
     this._unitManagerRef = null;
 
     this.el = document.createElement('div');
@@ -24,29 +23,18 @@ export class DetailPanel {
 
   open(personId) {
     this.personId = personId;
-    this.milestoneId = null;
     this._render();
-    this.el.classList.add('open');
-  }
-
-  openMilestone(milestoneId) {
-    this.milestoneId = milestoneId;
-    this.personId = null;
-    this._renderMilestone();
     this.el.classList.add('open');
   }
 
   close() {
     this.el.classList.remove('open');
     this.personId = null;
-    this.milestoneId = null;
   }
 
   refresh() {
     if (!this.el.classList.contains('open')) return;
-    if (this.milestoneId) {
-      this._renderMilestone();
-    } else if (this.personId) {
+    if (this.personId) {
       this._render();
     }
   }
@@ -221,110 +209,6 @@ export class DetailPanel {
       </div>
     `;
   }
-  _renderMilestone() {
-    const ms = this.store.getMilestone(this.milestoneId);
-    if (!ms) {
-      this.close();
-      return;
-    }
-
-    const tasks = this.store.getTasksForMilestone(this.milestoneId);
-    const progress = computeStructureProgress(ms, this.store.getTasks());
-    const progressPct = Math.round(progress * 100);
-
-    // Collect unique contributors
-    const contributors = new Map();
-    for (const task of tasks) {
-      if (task.assigneeId) {
-        const person = this.store.getPerson(task.assigneeId);
-        if (person && !contributors.has(person.id)) {
-          contributors.set(person.id, person);
-        }
-      }
-    }
-
-    this.el.innerHTML = `
-      <button class="detail-panel-close">&times;</button>
-
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
-        <div style="width:40px;height:40px;border-radius:8px;background:rgba(196,149,106,0.2);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;">
-          &#127984;
-        </div>
-        <div>
-          <div class="detail-name">${ms.name}</div>
-          <div class="detail-role">Milestone</div>
-        </div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">Overall Progress</div>
-        <div class="energy-bar-container">
-          <div class="energy-bar-fill" style="width:${progressPct}%;background:${progressBarColor(progress)};"></div>
-          <div class="energy-bar-label">${progressPct}%</div>
-        </div>
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">Tasks (${tasks.length})</div>
-        ${tasks.map(task => this._renderMilestoneTask(task)).join('')}
-        ${tasks.length === 0 ? '<div style="color:#666;font-size:12px;">No tasks in this milestone</div>' : ''}
-      </div>
-
-      <div class="detail-section">
-        <div class="detail-section-title">Contributors (${contributors.size})</div>
-        <div class="milestone-contributors">
-          ${[...contributors.values()].map(p => `
-            <button class="contributor-chip" data-person-id="${p.id}">
-              <span class="contributor-swatch" style="background:${p.color};"></span>
-              <span>${p.name.split(' ')[0]}</span>
-            </button>
-          `).join('')}
-        </div>
-      </div>
-    `;
-
-    // Close button
-    this.el.querySelector('.detail-panel-close').addEventListener('click', () => this.close());
-
-    // Contributor chip clicks → switch to person view
-    this.el.querySelectorAll('.contributor-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const pid = chip.dataset.personId;
-        if (pid) this.open(pid);
-      });
-    });
-  }
-
-  _renderMilestoneTask(task) {
-    const assignee = task.assigneeId ? this.store.getPerson(task.assigneeId) : null;
-    const categoryBadge = task.category
-      ? `<span style="background:rgba(160,170,184,0.12);color:#A0AAB8;padding:2px 6px;border-radius:4px;font-size:10px;">${task.category}</span>`
-      : '';
-
-    return `
-      <div class="task-item">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <div class="task-name">${task.name}</div>
-          ${categoryBadge}
-        </div>
-        ${task.description ? `<div class="task-desc">${task.description}</div>` : ''}
-        <div class="task-progress">
-          <div class="task-progress-fill" style="width:${task.percentComplete}%;"></div>
-        </div>
-        <div class="task-meta">
-          <span>${task.percentComplete}% complete</span>
-          ${assignee ? `<span style="color:#A0AAB8;">${assignee.name.split(' ')[0]}</span>` : ''}
-        </div>
-      </div>
-    `;
-  }
-}
-
-function progressBarColor(value) {
-  if (value >= 1) return '#C4956A';
-  if (value > 0.5) return '#8A9A7C';
-  if (value > 0.25) return '#C8C0A0';
-  return '#A0AAB8';
 }
 
 function staminaBarColor(value) {
