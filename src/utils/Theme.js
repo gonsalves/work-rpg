@@ -30,7 +30,7 @@ export const THEME = {
         mapSize: 4096,
         near: 0.5,
         far: 120,
-        extent: 40,
+        extent: 50,
         bias: -0.0003,
         normalBias: 0.03,
       },
