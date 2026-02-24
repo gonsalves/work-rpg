@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { THEME } from '../utils/Theme.js';
 
 export class Base {
   constructor(gameGrid, centerCol, centerRow, radius) {
@@ -16,23 +17,25 @@ export class Base {
   }
 
   _buildTownCenter() {
-    // Raised platform — brightest ivory
+    const B = THEME.base;
+
+    // Raised platform
     const platformGeo = new THREE.CylinderGeometry(this.radius * 0.7, this.radius * 0.8, 0.12, 16);
     const platformMat = new THREE.MeshStandardMaterial({
-      color: 0xF0EBE3,
-      roughness: 0.8,
-      metalness: 0,
+      color: B.platform.color,
+      roughness: B.platform.roughness,
+      metalness: B.platform.metalness,
     });
     const platform = new THREE.Mesh(platformGeo, platformMat);
     platform.position.set(this.worldX, 0.06, this.worldZ);
     platform.receiveShadow = true;
     this.group.add(platform);
 
-    // Central structure — clean matte cream walls
+    // Central structure — clean matte walls
     const hallMat = new THREE.MeshStandardMaterial({
-      color: 0xE0DAD0,
-      roughness: 0.8,
-      metalness: 0,
+      color: B.walls.color,
+      roughness: B.walls.roughness,
+      metalness: B.walls.metalness,
     });
 
     // Walls
@@ -42,13 +45,13 @@ export class Base {
     walls.castShadow = true;
     this.group.add(walls);
 
-    // Roof — slightly shadowed cream
+    // Roof
     const roofGeo = new THREE.ConeGeometry(1.0, 0.6, 4);
     const roofMat = new THREE.MeshStandardMaterial({
-      color: 0xD5CFC5,
-      roughness: 0.85,
+      color: B.roof.color,
+      roughness: B.roof.roughness,
+      metalness: B.roof.metalness,
       flatShading: true,
-      metalness: 0,
     });
     const roof = new THREE.Mesh(roofGeo, roofMat);
     roof.position.set(this.worldX, 1.22, this.worldZ);
@@ -56,19 +59,22 @@ export class Base {
     roof.castShadow = true;
     this.group.add(roof);
 
-    // Flag pole — neutral grey
+    // Flag pole
     const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.2, 4);
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7 });
+    const poleMat = new THREE.MeshStandardMaterial({
+      color: B.pole.color,
+      roughness: B.pole.roughness,
+    });
     const pole = new THREE.Mesh(poleGeo, poleMat);
     pole.position.set(this.worldX + 0.5, 1.4, this.worldZ + 0.5);
     this.group.add(pole);
 
-    // Flag — ivory
+    // Flag
     const flagGeo = new THREE.PlaneGeometry(0.4, 0.25);
     const flagMat = new THREE.MeshStandardMaterial({
-      color: 0xF0EBE3,
+      color: B.flag.color,
       side: THREE.DoubleSide,
-      roughness: 0.7,
+      roughness: B.flag.roughness,
     });
     const flag = new THREE.Mesh(flagGeo, flagMat);
     flag.position.set(this.worldX + 0.72, 1.85, this.worldZ + 0.5);

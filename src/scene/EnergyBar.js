@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { lerp, clamp } from '../utils/Math.js';
+import { THEME } from '../utils/Theme.js';
 
 const BAR_WIDTH = 1.0;
 const BAR_HEIGHT = 0.12;
@@ -14,19 +15,19 @@ export class EnergyBar {
     // Background bar
     const bgGeo = new THREE.BoxGeometry(BAR_WIDTH, BAR_HEIGHT, BAR_DEPTH);
     const bgMat = new THREE.MeshBasicMaterial({
-      color: 0x333333,
+      color: THEME.energyBar.background.color,
       transparent: true,
-      opacity: 0.3
+      opacity: THEME.energyBar.background.opacity,
     });
     this.bg = new THREE.Mesh(bgGeo, bgMat);
     this.group.add(this.bg);
 
-    // Fill bar — monochrome brightness gradient
+    // Fill bar
     const fillGeo = new THREE.BoxGeometry(BAR_WIDTH, BAR_HEIGHT, BAR_DEPTH);
     this.fillMat = new THREE.MeshBasicMaterial({
-      color: 0xE8E4DC,
+      color: THEME.energyBar.fill.color,
       transparent: true,
-      opacity: 0.85
+      opacity: THEME.energyBar.fill.opacity,
     });
     this.fill = new THREE.Mesh(fillGeo, this.fillMat);
     this.fill.scale.x = 1;
@@ -66,7 +67,7 @@ export class EnergyBar {
 
 function energyColor(value) {
   const color = new THREE.Color();
-  // Monochrome: dark grey (depleted) → bright ivory (full)
-  color.set(0x555555).lerp(new THREE.Color(0xE8E4DC), value);
+  const G = THEME.energyBar.gradient;
+  color.set(G.depletedColor).lerp(new THREE.Color(G.fullColor), value);
   return color;
 }

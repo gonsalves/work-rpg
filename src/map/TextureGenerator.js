@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { THEME } from '../utils/Theme.js';
 
 /**
- * Generates monochrome procedural terrain textures on Canvas2D.
- * Produces tileable 256x256 textures for each terrain type with
- * very subtle noise — matching the architectural maquette aesthetic.
+ * Generates procedural terrain textures on Canvas2D.
+ * Produces tileable 256x256 textures for each terrain type,
+ * reading all base colors and noise params from Theme.js.
  */
 
 const SIZE = 256;
@@ -64,23 +65,20 @@ function clamp(v, lo = 0, hi = 255) {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-// -- Texture generators (monochrome / architectural maquette style) --
+// -- Texture generators --
 
-/**
- * GRASS — base #E8E4DC (232, 228, 220)
- * Very subtle warm ivory noise. Near-flat matte surface.
- */
 function generateGrass() {
+  const T = THEME.terrainTextures.grass;
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#E8E4DC';
+  ctx.fillStyle = T.base;
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   const img = ctx.getImageData(0, 0, SIZE, SIZE);
   const d = img.data;
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      const n = (noise(x, y, 40) - 0.5) * 10;
+      const n = (noise(x, y, T.noiseScale) - 0.5) * (T.noiseAmplitude * 2);
       const i = (y * SIZE + x) * 4;
       d[i]     = clamp(d[i]     + n);
       d[i + 1] = clamp(d[i + 1] + n);
@@ -91,21 +89,18 @@ function generateGrass() {
   return makeTexture(canvas);
 }
 
-/**
- * DIRT — base #D8D2C8 (216, 210, 200)
- * Slightly darker cream with faint crack lines suggesting flagstones.
- */
 function generateDirt() {
+  const T = THEME.terrainTextures.dirt;
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#D8D2C8';
+  ctx.fillStyle = T.base;
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   const img = ctx.getImageData(0, 0, SIZE, SIZE);
   const d = img.data;
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      const n = (noise(x, y, 30) - 0.5) * 8;
+      const n = (noise(x, y, T.noiseScale) - 0.5) * (T.noiseAmplitude * 2);
       const i = (y * SIZE + x) * 4;
       d[i]     = clamp(d[i]     + n);
       d[i + 1] = clamp(d[i + 1] + n * 0.9);
@@ -122,7 +117,7 @@ function generateDirt() {
     const y = rand() * SIZE;
     const angle = rand() * Math.PI;
     const len = 10 + rand() * 20;
-    ctx.strokeStyle = 'rgba(180, 170, 158, 0.08)';
+    ctx.strokeStyle = T.crackColor;
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
@@ -132,14 +127,11 @@ function generateDirt() {
   return makeTexture(canvas);
 }
 
-/**
- * STONE — base #CCC8C0 (204, 200, 192)
- * Voronoi cell pattern with very subtle crack lines.
- */
 function generateStone() {
+  const T = THEME.terrainTextures.stone;
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#CCC8C0';
+  ctx.fillStyle = T.base;
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   const rand = seededRandom(303);
@@ -149,7 +141,7 @@ function generateStone() {
     seeds.push({
       x: rand() * SIZE,
       y: rand() * SIZE,
-      shade: 195 + Math.floor(rand() * 12),
+      shade: T.shadeMin + Math.floor(rand() * T.shadeRange),
     });
   }
 
@@ -159,7 +151,7 @@ function generateStone() {
   for (let py = 0; py < SIZE; py++) {
     for (let px = 0; px < SIZE; px++) {
       let d1 = Infinity, d2 = Infinity;
-      let nearestShade = 200;
+      let nearestShade = T.shadeMin + Math.floor(T.shadeRange / 2);
 
       for (const seed of seeds) {
         let dx = Math.abs(px - seed.x);
@@ -181,7 +173,6 @@ function generateStone() {
       const i = (py * SIZE + px) * 4;
 
       if (edge < 2.5) {
-        // Subtle crack line
         const v = nearestShade - 10;
         d[i] = v; d[i + 1] = v; d[i + 2] = v - 2;
       } else {
@@ -195,21 +186,18 @@ function generateStone() {
   return makeTexture(canvas);
 }
 
-/**
- * WATER — base #1A1A1A (26, 26, 26)
- * Near-black void with minimal noise.
- */
 function generateWater() {
+  const T = THEME.terrainTextures.water;
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#1A1A1A';
+  ctx.fillStyle = T.base;
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   const img = ctx.getImageData(0, 0, SIZE, SIZE);
   const d = img.data;
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      const n = (noise(x, y, 50) - 0.5) * 6;
+      const n = (noise(x, y, T.noiseScale) - 0.5) * (T.noiseAmplitude * 2);
       const i = (y * SIZE + x) * 4;
       d[i]     = clamp(d[i]     + n * 0.3);
       d[i + 1] = clamp(d[i + 1] + n * 0.3);
@@ -220,21 +208,18 @@ function generateWater() {
   return makeTexture(canvas);
 }
 
-/**
- * FOREST — base #C5CCBF (197, 204, 191)
- * Slight sage tint, subtle noise.
- */
 function generateForest() {
+  const T = THEME.terrainTextures.forest;
   const canvas = createCanvas();
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#C5CCBF';
+  ctx.fillStyle = T.base;
   ctx.fillRect(0, 0, SIZE, SIZE);
 
   const img = ctx.getImageData(0, 0, SIZE, SIZE);
   const d = img.data;
   for (let y = 0; y < SIZE; y++) {
     for (let x = 0; x < SIZE; x++) {
-      const n = (noise(x, y, 35) - 0.5) * 8;
+      const n = (noise(x, y, T.noiseScale) - 0.5) * (T.noiseAmplitude * 2);
       const i = (y * SIZE + x) * 4;
       d[i]     = clamp(d[i]     + n * 0.6);
       d[i + 1] = clamp(d[i + 1] + n * 0.8);

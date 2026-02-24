@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { TileType } from './GameGrid.js';
+import { THEME } from '../utils/Theme.js';
 
 const TILE_COLORS = {
-  [TileType.GRASS]:  0xE8E4DC,
-  [TileType.DIRT]:   0xD8D2C8,
-  [TileType.STONE]:  0xCCC8C0,
-  [TileType.WATER]:  0x1A1A1A,
-  [TileType.FOREST]: 0xC5CCBF,
+  [TileType.GRASS]:  THEME.terrain.tiles.grass,
+  [TileType.DIRT]:   THEME.terrain.tiles.dirt,
+  [TileType.STONE]:  THEME.terrain.tiles.stone,
+  [TileType.WATER]:  THEME.terrain.tiles.water,
+  [TileType.FOREST]: THEME.terrain.tiles.forest,
 };
 
 export class GameMap {
@@ -39,10 +40,10 @@ export class GameMap {
     for (const [type, tiles] of Object.entries(byType)) {
       const texture = this._textures ? this._textures[type] : null;
       const mat = new THREE.MeshStandardMaterial({
-        color: texture ? 0xffffff : (TILE_COLORS[type] || 0x888888),
+        color: texture ? 0xffffff : (TILE_COLORS[type] || THEME.terrain.fallbackColor),
         map: texture || null,
-        roughness: 0.9,
-        metalness: 0,
+        roughness: THEME.terrain.material.roughness,
+        metalness: THEME.terrain.material.metalness,
       });
       if (type === TileType.WATER) this._waterMaterial = mat;
 
@@ -79,9 +80,9 @@ export class GameMap {
     // Thin dowel trunk
     const trunkGeo = new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8);
     const trunkMat = new THREE.MeshStandardMaterial({
-      color: 0xD0C8BC,
-      roughness: 0.9,
-      metalness: 0,
+      color: THEME.trees.trunk.color,
+      roughness: THEME.trees.trunk.roughness,
+      metalness: THEME.trees.trunk.metalness,
     });
     const trunk = new THREE.Mesh(trunkGeo, trunkMat);
     trunk.position.set(world.x, 0.25, world.z);
@@ -90,9 +91,9 @@ export class GameMap {
     // Sphere crown — like foam ball on architectural model
     const crownGeo = new THREE.SphereGeometry(0.22, 12, 8);
     const crownMat = new THREE.MeshStandardMaterial({
-      color: 0x8A9A7C,
-      roughness: 0.85,
-      metalness: 0,
+      color: THEME.trees.crown.color,
+      roughness: THEME.trees.crown.roughness,
+      metalness: THEME.trees.crown.metalness,
     });
     const crown = new THREE.Mesh(crownGeo, crownMat);
     crown.position.set(world.x, 0.6, world.z);
@@ -109,9 +110,9 @@ export class GameMap {
     // Abstract geometric marker — icosahedron on pedestal
     const markerGeo = new THREE.IcosahedronGeometry(0.18, 0);
     const markerMat = new THREE.MeshStandardMaterial({
-      color: 0xE0E0E0,
-      roughness: 0.6,
-      metalness: 0.05,
+      color: THEME.resourceNodes.marker.color,
+      roughness: THEME.resourceNodes.marker.roughness,
+      metalness: THEME.resourceNodes.marker.metalness,
     });
     const marker = new THREE.Mesh(markerGeo, markerMat);
     marker.position.set(world.x, 0.35, world.z);
@@ -123,9 +124,9 @@ export class GameMap {
     // Small pedestal
     const pedestalGeo = new THREE.CylinderGeometry(0.12, 0.14, 0.15, 6);
     const pedestalMat = new THREE.MeshStandardMaterial({
-      color: 0xD8D2C8,
-      roughness: 0.9,
-      metalness: 0,
+      color: THEME.resourceNodes.pedestal.color,
+      roughness: THEME.resourceNodes.pedestal.roughness,
+      metalness: THEME.resourceNodes.pedestal.metalness,
     });
     const pedestal = new THREE.Mesh(pedestalGeo, pedestalMat);
     pedestal.position.set(world.x, 0.075, world.z);
@@ -149,8 +150,8 @@ export class GameMap {
     if (!group) return;
     group.traverse(child => {
       if (child.isMesh && child.material) {
-        child.material.color.set(0x888888);
-        child.material.opacity = 0.4;
+        child.material.color.set(THEME.resourceNodes.depleted.color);
+        child.material.opacity = THEME.resourceNodes.depleted.opacity;
         child.material.transparent = true;
       }
     });
@@ -162,10 +163,10 @@ export class GameMap {
 
     const boxGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
     const wireMat = new THREE.MeshStandardMaterial({
-      color: 0xCCC8C0,
+      color: THEME.structures.wireframe.color,
       wireframe: true,
       transparent: true,
-      opacity: 0.3,
+      opacity: THEME.structures.wireframe.opacity,
     });
     const wireBox = new THREE.Mesh(boxGeo, wireMat);
     wireBox.position.set(world.x, 0.45, world.z);
@@ -174,9 +175,9 @@ export class GameMap {
     structGroup.add(wireBox);
 
     const solidMat = new THREE.MeshStandardMaterial({
-      color: 0xE8E4DC,
-      roughness: 0.8,
-      metalness: 0,
+      color: THEME.structures.solid.color,
+      roughness: THEME.structures.solid.roughness,
+      metalness: THEME.structures.solid.metalness,
       transparent: true,
       opacity: 0,
     });
@@ -204,12 +205,12 @@ export class GameMap {
     solid.scale.y = Math.max(0.01, progress);
     solid.position.y = 0.45 * Math.max(0.01, progress);
 
-    wire.material.opacity = 0.3 * (1 - progress);
+    wire.material.opacity = THEME.structures.wireframe.opacity * (1 - progress);
 
     if (progress >= 1) {
-      solid.material.color.set(0xF5F0E8);
-      solid.material.emissive = new THREE.Color(0xF5F0E8);
-      solid.material.emissiveIntensity = 0.05;
+      solid.material.color.set(THEME.structures.complete.color);
+      solid.material.emissive = new THREE.Color(THEME.structures.complete.emissiveColor);
+      solid.material.emissiveIntensity = THEME.structures.complete.emissiveIntensity;
     }
   }
 

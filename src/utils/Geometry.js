@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { THEME } from './Theme.js';
 
 export function createTextSprite(text, fontSize = 48, color = '#2C2C2C', bgColor = null) {
   const canvas = document.createElement('canvas');
@@ -48,9 +49,9 @@ export function createTextSprite(text, fontSize = 48, color = '#2C2C2C', bgColor
 export function createShadowDisc(radius = 0.5) {
   const geo = new THREE.CircleGeometry(radius, 16);
   const mat = new THREE.MeshBasicMaterial({
-    color: 0x000000,
+    color: THEME.shadowDisc.color,
     transparent: true,
-    opacity: 0.2,
+    opacity: THEME.shadowDisc.opacity,
     depthWrite: false
   });
   const mesh = new THREE.Mesh(geo, mat);

@@ -1,9 +1,10 @@
 import * as THREE from 'three';
+import { THEME } from '../utils/Theme.js';
 
 export class SceneManager {
   constructor(canvas) {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x000000);
+    this.scene.background = new THREE.Color(THEME.scene.background);
 
     // Isometric orthographic camera
     const aspect = window.innerWidth / window.innerHeight;
@@ -31,7 +32,7 @@ export class SceneManager {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.9;
+    this.renderer.toneMappingExposure = THEME.scene.toneMappingExposure;
 
     this._setupLights();
 
@@ -39,33 +40,37 @@ export class SceneManager {
   }
 
   _setupLights() {
-    // Higher ambient for matte clay look
-    const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+    const L = THEME.lighting;
+
+    // Even studio fill
+    const ambient = new THREE.AmbientLight(L.ambient.color, L.ambient.intensity);
     this.scene.add(ambient);
 
-    // Main directional — pure white, raised higher for steeper shadows
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-    dirLight.position.set(20, 40, 15);
+    // Soft directional — modeling light
+    const dirLight = new THREE.DirectionalLight(L.directional.color, L.directional.intensity);
+    dirLight.position.set(...L.directional.position);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 4096;
-    dirLight.shadow.mapSize.height = 4096;
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 120;
-    dirLight.shadow.camera.left = -40;
-    dirLight.shadow.camera.right = 40;
-    dirLight.shadow.camera.top = 40;
-    dirLight.shadow.camera.bottom = -40;
-    dirLight.shadow.bias = -0.0005;
-    dirLight.shadow.normalBias = 0.02;
+    dirLight.shadow.mapSize.width = L.directional.shadow.mapSize;
+    dirLight.shadow.mapSize.height = L.directional.shadow.mapSize;
+    dirLight.shadow.camera.near = L.directional.shadow.near;
+    dirLight.shadow.camera.far = L.directional.shadow.far;
+    dirLight.shadow.camera.left = -L.directional.shadow.extent;
+    dirLight.shadow.camera.right = L.directional.shadow.extent;
+    dirLight.shadow.camera.top = L.directional.shadow.extent;
+    dirLight.shadow.camera.bottom = -L.directional.shadow.extent;
+    dirLight.shadow.bias = L.directional.shadow.bias;
+    dirLight.shadow.normalBias = L.directional.shadow.normalBias;
     this.scene.add(dirLight);
 
-    // Very subtle fill from opposite side
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.15);
-    fillLight.position.set(-15, 20, -10);
+    // Fill from opposite side
+    const fillLight = new THREE.DirectionalLight(L.fill.color, L.fill.intensity);
+    fillLight.position.set(...L.fill.position);
     this.scene.add(fillLight);
 
-    // Hemisphere: soft warm sky / cool ground
-    const hemi = new THREE.HemisphereLight(0xF5F0E8, 0xD0D5DD, 0.2);
+    // Hemisphere: even sky / ground
+    const hemi = new THREE.HemisphereLight(
+      L.hemisphere.skyColor, L.hemisphere.groundColor, L.hemisphere.intensity
+    );
     this.scene.add(hemi);
   }
 
