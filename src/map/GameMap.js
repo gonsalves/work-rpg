@@ -214,9 +214,10 @@ export class GameMap {
   addStructure(milestoneId, col, row) {
     const world = this.grid.tileToWorld(col, row);
     const structGroup = new THREE.Group();
+    const S = THEME.structures.stages;
 
-    // Base ring under structure for visibility
-    const ringGeo = new THREE.RingGeometry(0.5, 0.85, 16);
+    // Base ring
+    const ringGeo = new THREE.RingGeometry(0.6, 1.0, 16);
     ringGeo.rotateX(-Math.PI / 2);
     const ringMat = new THREE.MeshStandardMaterial({
       color: THEME.structures.base.color,
@@ -228,34 +229,97 @@ export class GameMap {
     ring.receiveShadow = true;
     structGroup.add(ring);
 
-    const boxGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+    // Foundation platform
+    const foundGeo = new THREE.CylinderGeometry(0.7, 0.8, 0.1, 8);
+    const foundMat = new THREE.MeshStandardMaterial({
+      color: S.foundation.color,
+      roughness: S.foundation.roughness,
+      metalness: S.foundation.metalness,
+    });
+    const foundation = new THREE.Mesh(foundGeo, foundMat);
+    foundation.position.set(world.x, 0.05, world.z);
+    foundation.receiveShadow = true;
+    structGroup.add(foundation);
+
+    // Wireframe blueprint (walls + roof outline)
+    const wireGroup = new THREE.Group();
+    const wireWallGeo = new THREE.BoxGeometry(1.0, 0.8, 1.0);
     const wireMat = new THREE.MeshStandardMaterial({
       color: THEME.structures.wireframe.color,
       wireframe: true,
       transparent: true,
       opacity: THEME.structures.wireframe.opacity,
     });
-    const wireBox = new THREE.Mesh(boxGeo, wireMat);
-    wireBox.position.set(world.x, 0.6, world.z);
-    wireBox.userData.milestoneId = milestoneId;
-    wireBox.userData.isStructure = true;
-    structGroup.add(wireBox);
+    const wireWall = new THREE.Mesh(wireWallGeo, wireMat);
+    wireWall.position.set(world.x, 0.5, world.z);
+    wireWall.userData.milestoneId = milestoneId;
+    wireWall.userData.isStructure = true;
+    wireGroup.add(wireWall);
 
-    const solidMat = new THREE.MeshStandardMaterial({
-      color: THEME.structures.solid.color,
-      roughness: THEME.structures.solid.roughness,
-      metalness: THEME.structures.solid.metalness,
+    const wireRoofGeo = new THREE.ConeGeometry(0.75, 0.5, 4);
+    const wireRoof = new THREE.Mesh(wireRoofGeo, wireMat.clone());
+    wireRoof.position.set(world.x, 1.15, world.z);
+    wireRoof.rotation.y = Math.PI / 4;
+    wireGroup.add(wireRoof);
+    structGroup.add(wireGroup);
+
+    // Solid walls
+    const wallGeo = new THREE.BoxGeometry(1.0, 0.8, 1.0);
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: S.walls.color,
+      roughness: S.walls.roughness,
+      metalness: S.walls.metalness,
       transparent: true,
       opacity: 0,
     });
-    const solidBox = new THREE.Mesh(boxGeo, solidMat);
-    solidBox.position.set(world.x, 0.6, world.z);
-    solidBox.castShadow = true;
-    solidBox.receiveShadow = true;
-    structGroup.add(solidBox);
+    const walls = new THREE.Mesh(wallGeo, wallMat);
+    walls.position.set(world.x, 0.5, world.z);
+    walls.castShadow = true;
+    walls.receiveShadow = true;
+    walls.userData.milestoneId = milestoneId;
+    walls.userData.isStructure = true;
+    structGroup.add(walls);
 
-    structGroup.userData._wire = wireBox;
-    structGroup.userData._solid = solidBox;
+    // Roof (cone, 4-sided pyramid)
+    const roofGeo = new THREE.ConeGeometry(0.75, 0.5, 4);
+    const roofMat = new THREE.MeshStandardMaterial({
+      color: S.roof.color,
+      roughness: S.roof.roughness,
+      metalness: S.roof.metalness,
+      transparent: true,
+      opacity: 0,
+      flatShading: true,
+    });
+    const roof = new THREE.Mesh(roofGeo, roofMat);
+    roof.position.set(world.x, 1.15, world.z);
+    roof.rotation.y = Math.PI / 4;
+    roof.castShadow = true;
+    structGroup.add(roof);
+
+    // Door (small box on front face)
+    const doorGeo = new THREE.BoxGeometry(0.2, 0.35, 0.06);
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: S.door.color,
+      roughness: S.door.roughness,
+      metalness: S.door.metalness,
+      transparent: true,
+      opacity: 0,
+    });
+    const door = new THREE.Mesh(doorGeo, doorMat);
+    door.position.set(world.x, 0.28, world.z + 0.52);
+    door.castShadow = true;
+    structGroup.add(door);
+
+    // Store refs for animation
+    structGroup.userData = {
+      _wireGroup: wireGroup,
+      _walls: walls,
+      _roof: roof,
+      _door: door,
+      _foundation: foundation,
+      _wx: world.x,
+      _wz: world.z,
+    };
 
     this.group.add(structGroup);
     this._structureGroups.set(milestoneId, structGroup);
@@ -265,19 +329,69 @@ export class GameMap {
   setStructureProgress(milestoneId, progress) {
     const group = this._structureGroups.get(milestoneId);
     if (!group) return;
-    const solid = group.userData._solid;
-    const wire = group.userData._wire;
+    const d = group.userData;
+    const wireGroup = d._wireGroup;
+    const walls = d._walls;
+    const roof = d._roof;
+    const door = d._door;
 
-    solid.material.opacity = progress * 0.9;
-    solid.scale.y = Math.max(0.01, progress);
-    solid.position.y = 0.6 * Math.max(0.01, progress);
+    // Wireframe fades as progress increases
+    wireGroup.traverse(child => {
+      if (child.isMesh && child.material) {
+        child.material.opacity = THEME.structures.wireframe.opacity * (1 - progress);
+      }
+    });
 
-    wire.material.opacity = THEME.structures.wireframe.opacity * (1 - progress);
+    // Stage 1: 0-25% — Foundation + wireframe only
+    if (progress < 0.25) {
+      walls.material.opacity = 0;
+      walls.scale.y = 0.01;
+      roof.material.opacity = 0;
+      door.material.opacity = 0;
+      return;
+    }
 
+    // Stage 2: 25-50% — Walls rising
+    if (progress < 0.5) {
+      const t = (progress - 0.25) / 0.25; // 0→1 within stage
+      walls.material.opacity = 0.3 + t * 0.5;
+      walls.scale.y = 0.2 + t * 0.8;
+      walls.position.y = 0.5 * walls.scale.y;
+      roof.material.opacity = 0;
+      door.material.opacity = 0;
+      return;
+    }
+
+    // Stage 3: 50-75% — Walls complete, roof appearing
+    if (progress < 0.75) {
+      const t = (progress - 0.5) / 0.25;
+      walls.material.opacity = 0.8 + t * 0.2;
+      walls.scale.y = 1;
+      walls.position.y = 0.5;
+      roof.material.opacity = t * 0.9;
+      roof.scale.set(t, t, t);
+      roof.position.y = 0.9 + t * 0.25;
+      door.material.opacity = 0;
+      return;
+    }
+
+    // Stage 4: 75-100% — Door and details appear
+    const t = (progress - 0.75) / 0.25;
+    walls.material.opacity = 1;
+    walls.scale.y = 1;
+    walls.position.y = 0.5;
+    roof.material.opacity = 0.9 + t * 0.1;
+    roof.scale.set(1, 1, 1);
+    roof.position.y = 1.15;
+    door.material.opacity = t;
+
+    // At 100%: golden completion glow
     if (progress >= 1) {
-      solid.material.color.set(THEME.structures.complete.color);
-      solid.material.emissive = new THREE.Color(THEME.structures.complete.emissiveColor);
-      solid.material.emissiveIntensity = THEME.structures.complete.emissiveIntensity;
+      walls.material.color.set(THEME.structures.complete.color);
+      walls.material.emissive = new THREE.Color(THEME.structures.complete.emissiveColor);
+      walls.material.emissiveIntensity = THEME.structures.complete.emissiveIntensity;
+      roof.material.emissive = new THREE.Color(THEME.structures.complete.emissiveColor);
+      roof.material.emissiveIntensity = THEME.structures.complete.emissiveIntensity * 0.5;
     }
   }
 

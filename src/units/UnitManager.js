@@ -84,8 +84,8 @@ export class UnitManager {
         this.units.set(person.id, unit);
         this.scene.add(avatar.group);
 
-        // Start hidden at door exit position (spawn sequencer will reveal)
-        const doorExit = this.base.getDoorExitPosition();
+        // Start hidden at first gate exit (spawn sequencer will reveal)
+        const doorExit = this.base.getDoorExitPositions()[0];
         const sceneDoor = this._toScene(doorExit.x, doorExit.z);
         avatar.setHomePosition(sceneDoor.x, sceneDoor.z);
         avatar.group.visible = false;

@@ -43,6 +43,9 @@ class SpawnSequencer {
     this._emergeStart = null;
     this._emergeEnd = null;
     this._done = false;
+    this._gateCount = base.getGateCount();
+    this._currentGate = 0;
+    this._exitPositions = base.getDoorExitPositions();
   }
 
   /**
@@ -68,10 +71,10 @@ class SpawnSequencer {
 
     // All spawned
     if (this._currentIndex >= this._queue.length) {
-      // Wait for door to close after last entity
+      // Wait for current gate door to close after last entity
       if (this._state === 'door_closing') {
-        this._base.closeDoor(dt);
-        if (this._base.isDoorClosed()) {
+        this._base.closeGate(dt, this._currentGate);
+        if (this._base.isGateClosed(this._currentGate)) {
           this._state = 'idle';
           this._done = true;
         }
@@ -82,32 +85,42 @@ class SpawnSequencer {
     }
 
     const entry = this._queue[this._currentIndex];
-    const doorExit = this._base.getDoorExitPosition();
+    const gi = this._currentGate;
+    const exitPos = this._exitPositions[gi];
     const sceneExit = {
-      x: doorExit.x + this._offset.x,
-      z: doorExit.z + this._offset.z,
+      x: exitPos.x + this._offset.x,
+      z: exitPos.z + this._offset.z,
     };
+
+    // Emerge direction: outward from castle center
+    const castleCenterScene = {
+      x: this._base.worldX + this._offset.x,
+      z: this._base.worldZ + this._offset.z,
+    };
+    const edx = sceneExit.x - castleCenterScene.x;
+    const edz = sceneExit.z - castleCenterScene.z;
+    const elen = Math.sqrt(edx * edx + edz * edz) || 1;
+    const emergeDirX = edx / elen;
+    const emergeDirZ = edz / elen;
 
     switch (this._state) {
       case 'idle':
-        // Start opening door for next entity
+        // Start opening gate for next entity
         this._state = 'door_opening';
-        // Position entity at door exit, hidden
         entry.group.position.set(sceneExit.x, 0, sceneExit.z);
         entry.group.visible = false;
         break;
 
       case 'door_opening':
-        this._base.openDoor(dt);
-        if (this._base.isDoorOpen()) {
-          // Door is open — entity starts emerging
+        this._base.openGate(dt, gi);
+        if (this._base.isGateOpen(gi)) {
           this._state = 'emerging';
           entry.group.visible = true;
           entry.group.position.set(sceneExit.x, 0, sceneExit.z);
           this._emergeStart = { x: sceneExit.x, z: sceneExit.z };
           this._emergeEnd = {
-            x: sceneExit.x,
-            z: sceneExit.z + EMERGE_DISTANCE,
+            x: sceneExit.x + emergeDirX * EMERGE_DISTANCE,
+            z: sceneExit.z + emergeDirZ * EMERGE_DISTANCE,
           };
           this._timer = 0;
         }
@@ -118,13 +131,11 @@ class SpawnSequencer {
         const emergeDuration = EMERGE_DISTANCE / EMERGE_SPEED;
         const t = Math.min(1, this._timer / emergeDuration);
 
-        // Lerp position from start to end
         entry.group.position.x = this._emergeStart.x + (this._emergeEnd.x - this._emergeStart.x) * t;
         entry.group.position.z = this._emergeStart.z + (this._emergeEnd.z - this._emergeStart.z) * t;
         entry.group.position.y = 0;
 
         if (t >= 1) {
-          // Done emerging — call onSpawned and start closing door
           if (entry.onSpawned) entry.onSpawned();
           this._currentIndex++;
           this._state = 'door_closing';
@@ -134,12 +145,12 @@ class SpawnSequencer {
       }
 
       case 'door_closing':
-        this._base.closeDoor(dt);
+        this._base.closeGate(dt, gi);
         this._timer += dt;
-        // Overlap: start opening for next entity after door is mostly closed
-        // or after a brief pause
-        if (this._base.isDoorClosed() || this._timer > 0.4) {
-          this._state = 'idle'; // will immediately start next entity
+        if (this._base.isGateClosed(gi) || this._timer > 0.4) {
+          // Cycle to next gate
+          this._currentGate = (this._currentGate + 1) % this._gateCount;
+          this._state = 'idle';
         }
         break;
     }
@@ -243,7 +254,7 @@ async function boot() {
 
   // --- Animals (all start hidden — spawn sequencer reveals them) ---
   const animalManager = new AnimalManager(scene, grid, offset);
-  animalManager.setDoorExitPosition(base.getDoorExitPosition());
+  animalManager.setDoorExitPositions(base.getDoorExitPositions());
   animalManager.spawn(); // 5-8 random cats, dogs, penguins
 
   // --- Spawn Sequencer ---
@@ -334,6 +345,7 @@ async function boot() {
     toolbar.onToggleEditor(() => editorPanel.toggle());
 
     raycaster.onAvatarClick((personId) => detailPanel.open(personId));
+    raycaster.onStructureClick((milestoneId) => detailPanel.openMilestone(milestoneId));
 
     raycaster.onAvatarHover((personId, screenPos) => {
       if (personId) {

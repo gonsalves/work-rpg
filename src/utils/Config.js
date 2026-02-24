@@ -11,7 +11,7 @@ export const CONFIG = {
 
   // Map
   MAP_SIZE: 80,
-  BASE_RADIUS: 3,
+  BASE_RADIUS: 6,
 
   // Unit sight
   SCOUT_SIGHT_RADIUS: 3,

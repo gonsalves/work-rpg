@@ -1,4 +1,5 @@
 import { TileType } from './GameGrid.js';
+import { CONFIG } from '../utils/Config.js';
 
 /**
  * Simple seeded PRNG (mulberry32) for deterministic terrain.
@@ -47,7 +48,7 @@ export class TerrainGenerator {
     const rand = seededRandom(seed);
     const cx = grid.width / 2;
     const cz = grid.height / 2;
-    const baseRadius = 3;
+    const baseRadius = CONFIG.BASE_RADIUS;
 
     for (let row = 0; row < grid.height; row++) {
       for (let col = 0; col < grid.width; col++) {
@@ -123,8 +124,8 @@ export class TerrainGenerator {
 
       // Place farther from center if more discovery-heavy
       const discoveryWeight = task.discoveryPercent / 100;
-      const minRadius = 6 + discoveryWeight * 4;
-      const maxRadius = 12 + discoveryWeight * 8;
+      const minRadius = (CONFIG.BASE_RADIUS + 3) + discoveryWeight * 4;
+      const maxRadius = (CONFIG.BASE_RADIUS + 6) + discoveryWeight * 8;
       const radius = minRadius + rand() * (maxRadius - minRadius);
       const angle = rand() * Math.PI * 2;
 
@@ -175,9 +176,9 @@ export class TerrainGenerator {
       }
       const rand = seededRandom(Math.abs(hash) + 9999); // offset to avoid overlap with resource seeds
 
-      // Place at radii 10–18 from center (well outside base, within walkable area)
-      const minRadius = 10;
-      const maxRadius = 18;
+      // Place at radii outside base, within walkable area
+      const minRadius = CONFIG.BASE_RADIUS + 6;
+      const maxRadius = CONFIG.BASE_RADIUS + 14;
       const radius = minRadius + rand() * (maxRadius - minRadius);
       const angle = rand() * Math.PI * 2;
 

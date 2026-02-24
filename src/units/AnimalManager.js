@@ -24,14 +24,15 @@ export class AnimalManager {
     this.grid = grid;
     this._offset = worldOffset;
     this._animals = []; // { animal: Animal, state: 'walking'|'idle', path, pathIndex, pauseTimer, spawned }
-    this._doorExitPos = null; // set by setDoorExitPosition
+    this._doorExitPositions = []; // set by setDoorExitPositions
   }
 
   /**
-   * Set the base door exit position (grid-world coords) for spawn placement.
+   * Set the base gate exit positions (grid-world coords) for spawn placement.
+   * @param {Array<{x:number, z:number}>} positions
    */
-  setDoorExitPosition(pos) {
-    this._doorExitPos = pos;
+  setDoorExitPositions(positions) {
+    this._doorExitPositions = positions;
   }
 
   /**
@@ -48,10 +49,11 @@ export class AnimalManager {
       const type = ANIMAL_TYPES[Math.floor(Math.random() * ANIMAL_TYPES.length)];
       const animal = new Animal(type);
 
-      // Start at door exit position, hidden
-      if (this._doorExitPos) {
-        const sx = this._doorExitPos.x + this._offset.x;
-        const sz = this._doorExitPos.z + this._offset.z;
+      // Start at a gate exit position (cycle through gates), hidden
+      if (this._doorExitPositions.length > 0) {
+        const exitPos = this._doorExitPositions[i % this._doorExitPositions.length];
+        const sx = exitPos.x + this._offset.x;
+        const sz = exitPos.z + this._offset.z;
         animal.group.position.set(sx, 0, sz);
       }
 

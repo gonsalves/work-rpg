@@ -145,13 +145,23 @@ export const THEME = {
       color: 0xC4956A,
       opacity: 0.3,
     },
+    stages: {
+      foundation: { color: 0xC4A070, roughness: 0.9, metalness: 0 },
+      walls:      { color: 0xE8D8C0, roughness: 0.8, metalness: 0 },
+      roof:       { color: 0xB85C4A, roughness: 0.85, metalness: 0 },
+      door:       { color: 0x8B6B4A, roughness: 0.75, metalness: 0 },
+    },
   },
 
-  // ─── Base (Town Center) ─────────────────────────────────────────
+  // ─── Base (Castle) ─────────────────────────────────────────────
   base: {
     platform: { color: 0xD2B48C, roughness: 0.8, metalness: 0 },
     walls:    { color: 0xE8D8C0, roughness: 0.8, metalness: 0 },
     roof:     { color: 0xB85C4A, roughness: 0.85, metalness: 0 },
+    tower:    { color: 0xDCC8B0, roughness: 0.8, metalness: 0 },
+    battlement: { color: 0xD0BCA0, roughness: 0.85, metalness: 0 },
+    gate:     { color: 0x8B6B4A, roughness: 0.75, metalness: 0 },
+    keep:     { color: 0xF0E0C8, roughness: 0.8, metalness: 0 },
     pole:     { color: 0x8B6B4A, roughness: 0.7 },
     flag:     { color: 0xF0E6D0, roughness: 0.7 },
   },
