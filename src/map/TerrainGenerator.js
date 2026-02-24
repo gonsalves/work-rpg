@@ -80,11 +80,19 @@ export class TerrainGenerator {
           type = TileType.GRASS;
         }
 
-        // Circular map boundary: water beyond scaled radius
-        // (22 for 48, ~36 for 80 — proportional border)
-        const waterBoundary = Math.floor(Math.min(grid.width, grid.height) * 0.46);
-        if (dist > waterBoundary) {
+        // Hexagonal map boundary: Catan-style hex edges with organic noise
+        const hexRadius = Math.min(grid.width, grid.height) * 0.48;
+        const hexDist = this._hexDistance(dx, dz, hexRadius);
+
+        // Organic coastline noise (two octaves blended)
+        const coastNoise1 = valueNoise(col * 0.3, row * 0.3, 4, null);
+        const coastNoise2 = valueNoise(col * 0.7 + 50, row * 0.7 + 50, 3, null);
+        const edgeVariation = ((coastNoise1 + coastNoise2 * 0.5) / 1.5 - 0.5) * 0.18;
+
+        if (hexDist + edgeVariation > 1.0) {
           type = TileType.WATER;
+        } else if (hexDist + edgeVariation > 0.90) {
+          type = TileType.DIRT; // Sandy shore band
         }
 
         grid.setTile(col, row, { type, elevation: 0 });
@@ -204,5 +212,25 @@ export class TerrainGenerator {
       }
     }
     return null;
+  }
+
+  /**
+   * Normalized hexagonal distance from center (flat-top hex).
+   * Flat edges face north/south, vertices point east/west.
+   * Returns 0 at center, 1.0 at hex boundary, >1.0 outside.
+   * @param {number} dx - horizontal offset from center
+   * @param {number} dz - vertical offset from center
+   * @param {number} radius - hex circumradius (center to vertex distance)
+   */
+  _hexDistance(dx, dz, radius) {
+    const nx = dx / radius;
+    const nz = dz / radius;
+    // Three constraint axes for flat-top hex:
+    // a: north/south flat edges (closest to center at R*√3/2)
+    // b,c: angled edges at ±60°
+    const a = Math.abs(nz) * 1.1547;            // 2/√3 ≈ 1.1547
+    const b = Math.abs(nx + nz * 0.57735);      // 1/√3 ≈ 0.57735
+    const c = Math.abs(nx - nz * 0.57735);
+    return Math.max(a, b, c);
   }
 }

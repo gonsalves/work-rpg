@@ -72,12 +72,36 @@ describe('TerrainGenerator', () => {
       gen.generate(large);
 
       // Check tile at same proportional distance from center
-      // At 80x80, tiles at distance ~36 should be water (0.46 * 80 ≈ 36)
-      // At 48x48, tiles at distance ~22 should be water (0.46 * 48 ≈ 22)
+      // At 80x80, hexRadius ≈ 38.4 — vertices reach ~38 tiles, edges ~33 tiles from center
+      // At 48x48, hexRadius ≈ 23.0 — vertices reach ~23 tiles, edges ~20 tiles from center
       const smallCorner = small.getTile(2, 2);
       const largeCorner = large.getTile(2, 2);
       expect(smallCorner.type).toBe(TileType.WATER);
       expect(largeCorner.type).toBe(TileType.WATER);
+    });
+
+    it('boundary forms a hexagonal shape (vertex farther than edge midpoint)', () => {
+      const grid = new GameGrid(80, 80);
+      const gen = new TerrainGenerator();
+      gen.generate(grid);
+
+      const cx = 40, cz = 40;
+
+      // Find last land tile along vertex direction (east, row=40)
+      let lastLandVertex = 0;
+      for (let col = cx; col < 80; col++) {
+        if (grid.getTile(col, cz).type !== TileType.WATER) lastLandVertex = col;
+      }
+
+      // Find last land tile along edge midpoint direction (north, col=40)
+      let lastLandEdge = 0;
+      for (let row = cz; row >= 0; row--) {
+        if (grid.getTile(cx, row).type !== TileType.WATER) lastLandEdge = cz - row;
+      }
+
+      // Vertex direction should extend farther than edge midpoint direction
+      const vertexDist = lastLandVertex - cx;
+      expect(vertexDist).toBeGreaterThan(lastLandEdge);
     });
   });
 
