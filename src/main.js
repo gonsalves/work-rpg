@@ -18,7 +18,162 @@ import { DetailPanel } from './ui/DetailPanel.js';
 import { CONFIG } from './utils/Config.js';
 import { resourceColorForCategory } from './utils/Colors.js';
 import { computeStructureProgress } from './data/ResourceCalculator.js';
-import { generateTerrainTextures } from './map/TextureGenerator.js';
+
+// ─── Spawn Sequencer ─────────────────────────────────────────────────────────
+// Drives the "characters emerging from the base" intro sequence.
+// Each entity: door opens → entity walks out → hops 5 times → door closes → next
+
+const EMERGE_DISTANCE = 2.0;    // tiles to walk out from door
+const EMERGE_SPEED = 3.0;       // tiles/sec while walking out
+const HOP_COUNT = 5;
+const HOP_HEIGHTS = [0.35, 0.30, 0.25, 0.20, 0.15]; // decreasing amplitude
+const HOP_DURATION = 0.36;      // seconds per hop (up + down)
+
+class SpawnSequencer {
+  /**
+   * @param {Base} base
+   * @param {{x:number, z:number}} worldOffset — grid-to-scene offset
+   */
+  constructor(base, worldOffset) {
+    this._base = base;
+    this._offset = worldOffset;
+    this._queue = [];       // { group, onSpawned, type }
+    this._currentIndex = 0;
+    this._state = 'idle';   // idle | door_opening | emerging | hopping | door_closing
+    this._timer = 0;
+    this._hopIndex = 0;
+    this._hopPhase = 0;
+    this._emergeStart = null;
+    this._emergeEnd = null;
+    this._done = false;
+  }
+
+  /**
+   * Add an entity to the spawn queue.
+   * @param {THREE.Group} group — the entity's 3D group
+   * @param {Function} onSpawned — called when entity finishes hopping
+   * @param {'person'|'animal'} type
+   */
+  addEntity(group, onSpawned, type = 'person') {
+    this._queue.push({ group, onSpawned, type });
+  }
+
+  isDone() { return this._done; }
+
+  update(dt) {
+    if (this._done) return;
+
+    // Nothing in queue
+    if (this._queue.length === 0) {
+      this._done = true;
+      return;
+    }
+
+    // All spawned
+    if (this._currentIndex >= this._queue.length) {
+      // Wait for door to close after last entity
+      if (this._state === 'door_closing') {
+        this._base.closeDoor(dt);
+        if (this._base.isDoorClosed()) {
+          this._state = 'idle';
+          this._done = true;
+        }
+      } else {
+        this._done = true;
+      }
+      return;
+    }
+
+    const entry = this._queue[this._currentIndex];
+    const doorExit = this._base.getDoorExitPosition();
+    const sceneExit = {
+      x: doorExit.x + this._offset.x,
+      z: doorExit.z + this._offset.z,
+    };
+
+    switch (this._state) {
+      case 'idle':
+        // Start opening door for next entity
+        this._state = 'door_opening';
+        // Position entity at door exit, hidden
+        entry.group.position.set(sceneExit.x, 0, sceneExit.z);
+        entry.group.visible = false;
+        break;
+
+      case 'door_opening':
+        this._base.openDoor(dt);
+        if (this._base.isDoorOpen()) {
+          // Door is open — entity starts emerging
+          this._state = 'emerging';
+          entry.group.visible = true;
+          entry.group.position.set(sceneExit.x, 0, sceneExit.z);
+          this._emergeStart = { x: sceneExit.x, z: sceneExit.z };
+          this._emergeEnd = {
+            x: sceneExit.x,
+            z: sceneExit.z + EMERGE_DISTANCE,
+          };
+          this._timer = 0;
+        }
+        break;
+
+      case 'emerging': {
+        this._timer += dt;
+        const emergeDuration = EMERGE_DISTANCE / EMERGE_SPEED;
+        const t = Math.min(1, this._timer / emergeDuration);
+
+        // Lerp position from start to end
+        entry.group.position.x = this._emergeStart.x + (this._emergeEnd.x - this._emergeStart.x) * t;
+        entry.group.position.z = this._emergeStart.z + (this._emergeEnd.z - this._emergeStart.z) * t;
+        entry.group.position.y = 0;
+
+        if (t >= 1) {
+          this._state = 'hopping';
+          this._hopIndex = 0;
+          this._hopPhase = 0;
+        }
+        break;
+      }
+
+      case 'hopping': {
+        this._hopPhase += dt;
+        const hopHeight = HOP_HEIGHTS[this._hopIndex] || 0.15;
+
+        if (this._hopPhase >= HOP_DURATION) {
+          // Hop complete
+          this._hopPhase -= HOP_DURATION;
+          this._hopIndex++;
+          entry.group.position.y = 0;
+
+          if (this._hopIndex >= HOP_COUNT) {
+            // All hops done — call onSpawned and start closing door
+            entry.group.position.y = 0;
+            if (entry.onSpawned) entry.onSpawned();
+            this._currentIndex++;
+            this._state = 'door_closing';
+            this._timer = 0;
+          }
+        } else {
+          // Smooth arc: y = sin(phase/duration * PI) * height
+          const hopT = this._hopPhase / HOP_DURATION;
+          entry.group.position.y = Math.sin(hopT * Math.PI) * hopHeight;
+        }
+        break;
+      }
+
+      case 'door_closing':
+        this._base.closeDoor(dt);
+        this._timer += dt;
+        // Overlap: start opening for next entity after door is mostly closed
+        // or after a brief pause
+        if (this._base.isDoorClosed() || this._timer > 0.4) {
+          this._state = 'idle'; // will immediately start next entity
+        }
+        break;
+    }
+  }
+}
+
+// ─── Boot ────────────────────────────────────────────────────────────────────
 
 async function boot() {
   const canvas = document.getElementById('scene');
@@ -52,11 +207,8 @@ async function boot() {
   const milestones = store.getMilestones();
   const structurePositions = terrainGen.placeStructures(grid, milestones);
 
-  // --- Terrain textures ---
-  const terrainTextures = generateTerrainTextures();
-
-  // --- Map renderer ---
-  const gameMap = new GameMap(grid, terrainTextures);
+  // --- Map renderer (no textures — flat matte colors) ---
+  const gameMap = new GameMap(grid, null);
   const offset = gameMap.centerOffset();
   gameMap.getGroup().position.set(offset.x, 0, offset.z);
   scene.add(gameMap.getGroup());
@@ -104,7 +256,7 @@ async function boot() {
   };
   const cameraControls = new CameraControls(camera, renderer, adjustedBounds);
 
-  // --- Units ---
+  // --- Units (all start hidden — spawn sequencer reveals them) ---
   const unitManager = new UnitManager(scene, grid, gameMap, fog, store, base);
   unitManager.setCamera(camera);
   unitManager.setWorldOffset(offset);
@@ -112,9 +264,28 @@ async function boot() {
   unitManager.setStructurePositions(structurePositions);
   unitManager.refresh();
 
-  // --- Animals (decorative wanderers) ---
+  // --- Animals (all start hidden — spawn sequencer reveals them) ---
   const animalManager = new AnimalManager(scene, grid, offset);
+  animalManager.setDoorExitPosition(base.getDoorExitPosition());
   animalManager.spawn(); // 5-8 random cats, dogs, penguins
+
+  // --- Spawn Sequencer ---
+  const spawnSequencer = new SpawnSequencer(base, offset);
+
+  // Queue people first, then animals
+  const avatarList = unitManager.getAvatarList();
+  for (const { personId, avatar } of avatarList) {
+    spawnSequencer.addEntity(avatar.group, () => {
+      unitManager.markSpawned(personId);
+    }, 'person');
+  }
+
+  const animalList = animalManager.getAnimalList();
+  for (const { index, group } of animalList) {
+    spawnSequencer.addEntity(group, () => {
+      animalManager.markSpawned(index);
+    }, 'animal');
+  }
 
   // --- Render loop (start early so scene is always live) ---
   let lastTime = performance.now();
@@ -125,6 +296,12 @@ async function boot() {
     lastTime = now;
 
     cameraControls.update(dt);
+
+    // Drive the spawn intro sequence
+    if (!spawnSequencer.isDone()) {
+      spawnSequencer.update(dt);
+    }
+
     unitManager.update(dt);
     animalManager.update(dt);
     gameMap.update(dt);

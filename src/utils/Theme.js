@@ -110,7 +110,7 @@ export const THEME = {
   // ─── Resource Nodes ─────────────────────────────────────────────
   resourceNodes: {
     marker: {
-      color: 0xE85D5D,
+      color: 0x6DBE6D,
       roughness: 0.5,
       metalness: 0.02,
     },

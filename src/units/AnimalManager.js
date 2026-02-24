@@ -23,11 +23,20 @@ export class AnimalManager {
     this.scene = scene;
     this.grid = grid;
     this._offset = worldOffset;
-    this._animals = []; // { animal: Animal, state: 'walking'|'idle', path, pathIndex, pauseTimer }
+    this._animals = []; // { animal: Animal, state: 'walking'|'idle', path, pathIndex, pauseTimer, spawned }
+    this._doorExitPos = null; // set by setDoorExitPosition
+  }
+
+  /**
+   * Set the base door exit position (grid-world coords) for spawn placement.
+   */
+  setDoorExitPosition(pos) {
+    this._doorExitPos = pos;
   }
 
   /**
    * Spawn a random assortment of animals.
+   * All start hidden at the door exit position (spawn sequencer reveals them).
    * @param {number} count — total animals to spawn (default 5-8)
    */
   spawn(count) {
@@ -35,34 +44,59 @@ export class AnimalManager {
       count = 5 + Math.floor(Math.random() * 4); // 5-8
     }
 
-    const cx = this.grid.width / 2;
-    const cz = this.grid.height / 2;
-
     for (let i = 0; i < count; i++) {
       const type = ANIMAL_TYPES[Math.floor(Math.random() * ANIMAL_TYPES.length)];
       const animal = new Animal(type);
 
-      // Find a random walkable spawn position
-      const pos = this._randomWalkablePosition(cx, cz, SPAWN_MIN_RADIUS, SPAWN_MAX_RADIUS);
-      if (!pos) continue;
+      // Start at door exit position, hidden
+      if (this._doorExitPos) {
+        const sx = this._doorExitPos.x + this._offset.x;
+        const sz = this._doorExitPos.z + this._offset.z;
+        animal.group.position.set(sx, 0, sz);
+      }
 
-      const world = this.grid.tileToWorld(pos.col, pos.row);
-      const sx = world.x + this._offset.x;
-      const sz = world.z + this._offset.z;
-      animal.group.position.set(sx, 0, sz);
-
+      animal.group.visible = false;
       this.scene.add(animal.group);
+
+      // Pick a random wander target position for after spawning
+      const cx = this.grid.width / 2;
+      const cz = this.grid.height / 2;
+      const wanderHome = this._randomWalkablePosition(cx, cz, SPAWN_MIN_RADIUS, SPAWN_MAX_RADIUS);
 
       this._animals.push({
         animal,
         state: 'idle',
         path: null,
         pathIndex: 0,
-        pauseTimer: 1 + Math.random() * 3, // stagger initial pauses
-        col: pos.col,
-        row: pos.row,
+        pauseTimer: 999, // paused until spawned
+        col: wanderHome ? wanderHome.col : Math.floor(cx),
+        row: wanderHome ? wanderHome.row : Math.floor(cz),
+        spawned: false,
+        wanderHome, // remember target area for post-spawn
       });
     }
+  }
+
+  /**
+   * Mark an animal as having completed the spawn sequence.
+   * Makes it start wandering.
+   */
+  markSpawned(index) {
+    const entry = this._animals[index];
+    if (!entry) return;
+    entry.spawned = true;
+    entry.pauseTimer = 0.5 + Math.random() * 1; // brief pause then wander
+  }
+
+  /**
+   * Get list of animal groups for spawn sequencing.
+   */
+  getAnimalList() {
+    return this._animals.map((entry, index) => ({
+      index,
+      animal: entry.animal,
+      group: entry.animal.group,
+    }));
   }
 
   /**
@@ -70,6 +104,9 @@ export class AnimalManager {
    */
   update(dt) {
     for (const entry of this._animals) {
+      // Skip unspawned animals
+      if (!entry.spawned) continue;
+
       switch (entry.state) {
         case 'idle':
           this._handleIdle(entry, dt);

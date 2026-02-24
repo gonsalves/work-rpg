@@ -25,6 +25,7 @@ export class UnitManager {
 
     this.units = new Map(); // personId -> { avatar, sm }
     this._resourceNodePositions = new Map(); // taskId -> { col, row }
+    this._spawned = new Set(); // personIds that have finished spawn sequence
   }
 
   setWorldOffset(offset) {
@@ -80,10 +81,11 @@ export class UnitManager {
         this.units.set(person.id, unit);
         this.scene.add(avatar.group);
 
-        // Start at base (convert grid-world to scene coords)
-        const spawn = this.base.getSpawnPosition(i, total);
-        const sceneSpawn = this._toScene(spawn.x, spawn.z);
-        avatar.setHomePosition(sceneSpawn.x, sceneSpawn.z);
+        // Start hidden at door exit position (spawn sequencer will reveal)
+        const doorExit = this.base.getDoorExitPosition();
+        const sceneDoor = this._toScene(doorExit.x, doorExit.z);
+        avatar.setHomePosition(sceneDoor.x, sceneDoor.z);
+        avatar.group.visible = false;
       }
 
       // Update stamina
@@ -91,8 +93,8 @@ export class UnitManager {
       const stamina = computeUnitStamina(tasks);
       unit.avatar.setEnergy(stamina);
 
-      // Assign behavior if idle
-      if (unit.sm.state === UnitStates.IDLE) {
+      // Only assign behavior to units that have finished spawning
+      if (this._spawned.has(person.id) && unit.sm.state === UnitStates.IDLE) {
         this._assignBehavior(unit, person);
       }
     }
@@ -550,6 +552,39 @@ export class UnitManager {
   getUnitState(personId) {
     const unit = this.units.get(personId);
     return unit ? unit.sm : null;
+  }
+
+  /**
+   * Mark a person as having completed the spawn sequence.
+   * Triggers immediate behavior assignment.
+   */
+  markSpawned(personId) {
+    this._spawned.add(personId);
+    const unit = this.units.get(personId);
+    if (unit) {
+      // Set proper home position now that they're spawned
+      const person = this.store.getPerson(personId);
+      const people = this.store.getPeople();
+      const idx = people.findIndex(p => p.id === personId);
+      const spawn = this.base.getSpawnPosition(idx >= 0 ? idx : 0, people.length);
+      const sceneSpawn = this._toScene(spawn.x, spawn.z);
+      unit.avatar.homePosition.set(sceneSpawn.x, 0, sceneSpawn.z);
+
+      if (person && unit.sm.state === UnitStates.IDLE) {
+        this._assignBehavior(unit, person);
+      }
+    }
+  }
+
+  /**
+   * Return ordered list of { personId, avatar } for spawn sequencing.
+   */
+  getAvatarList() {
+    const list = [];
+    for (const [id, unit] of this.units) {
+      list.push({ personId: id, avatar: unit.avatar });
+    }
+    return list;
   }
 
   getAvatars() {
