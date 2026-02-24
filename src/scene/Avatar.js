@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { EnergyBar } from './EnergyBar.js';
 import { createTextSprite, createShadowDisc } from '../utils/Geometry.js';
 import { lerp } from '../utils/Math.js';
 import { THEME } from '../utils/Theme.js';
@@ -23,14 +22,10 @@ export class Avatar {
 
     this._buildBody();
 
-    this.energyBar = new EnergyBar();
-    this.energyBar.getGroup().position.y = 2.1;
-    this.group.add(this.energyBar.getGroup());
-
     // Name label
     const ns = THEME.avatar.nameSprite;
     this.nameSprite = createTextSprite(personData.name, ns.fontSize, ns.textColor, ns.bgColor);
-    this.nameSprite.position.y = 2.5;
+    this.nameSprite.position.y = 2.1;
     this.group.add(this.nameSprite);
 
     const shadow = createShadowDisc(0.4);
@@ -120,7 +115,6 @@ export class Avatar {
 
   setEnergy(value) {
     this.energy = value;
-    this.energyBar.setEnergy(value);
   }
 
   setCarrying(carrying) {
@@ -150,7 +144,6 @@ export class Avatar {
 
   update(dt, camera) {
     this._updateWalkAnimation(dt);
-    this.energyBar.update(dt, camera);
   }
 
   _faceDirection(dx, dz, dt) {
@@ -216,6 +209,5 @@ export class Avatar {
         child.material.dispose();
       }
     });
-    this.energyBar.dispose();
   }
 }

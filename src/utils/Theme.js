@@ -53,7 +53,7 @@ export const THEME = {
       grass:  0xF0F0F0,
       dirt:   0xE0E0E0,
       stone:  0xD8D8D8,
-      water:  0xC8D0D8,
+      water:  0x5BA4CF,
       forest: 0xE8EDE5,
     },
     fallbackColor: 0xDDDDDD,
@@ -82,7 +82,7 @@ export const THEME = {
       shadeRange: 12,
     },
     water: {
-      base: '#C8D0D8',
+      base: '#5BA4CF',
       noiseScale: 50,
       noiseAmplitude: 4,
     },
@@ -101,7 +101,7 @@ export const THEME = {
       metalness: 0,
     },
     crown: {
-      color: 0x8A9A7C,   // Sage green — sole color accent
+      color: 0x6DBE6D,   // Bright matte green
       roughness: 0.85,
       metalness: 0,
     },
@@ -110,8 +110,8 @@ export const THEME = {
   // ─── Resource Nodes ─────────────────────────────────────────────
   resourceNodes: {
     marker: {
-      color: 0xE8E8E8,
-      roughness: 0.6,
+      color: 0xE85D5D,
+      roughness: 0.5,
       metalness: 0.02,
     },
     pedestal: {
@@ -209,7 +209,7 @@ export const THEME = {
 
   // ─── Fog of War (frozen — not changed) ──────────────────────────
   fog: {
-    color: { r: 0, g: 0, b: 0 },
+    color: { r: 255, g: 255, b: 255 },
     revealFloor: 0.55,
     fadeInSpeed: 2.0,
     fadeOutSpeed: 0.8,

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FogState } from './GameGrid.js';
+import { THEME } from '../utils/Theme.js';
 
 export class FogOfWar {
   constructor(gameGrid) {
@@ -22,11 +23,14 @@ export class FogOfWar {
     // Current alpha: smoothly interpolates toward targetAlpha.
     this._currentAlpha = new Float32Array(total);
 
-    // Initialize all tiles as fully fogged (black, opaque)
+    // Initialize all tiles as fully fogged (white, opaque)
+    const fogR = THEME.fog.color.r;
+    const fogG = THEME.fog.color.g;
+    const fogB = THEME.fog.color.b;
     for (let i = 0; i < total; i++) {
-      this._texData[i * 4 + 0] = 0;   // R
-      this._texData[i * 4 + 1] = 0;   // G
-      this._texData[i * 4 + 2] = 0;   // B
+      this._texData[i * 4 + 0] = fogR;
+      this._texData[i * 4 + 1] = fogG;
+      this._texData[i * 4 + 2] = fogB;
       this._texData[i * 4 + 3] = 255; // A (fully opaque)
       this._revealFloor[i] = 1.0;
       this._targetAlpha[i] = 1.0;
