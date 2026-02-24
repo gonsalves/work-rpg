@@ -9,6 +9,7 @@ import { GameMap } from './map/GameMap.js';
 import { FogOfWar } from './map/FogOfWar.js';
 import { Base } from './map/Base.js';
 import { UnitManager } from './units/UnitManager.js';
+import { AnimalManager } from './units/AnimalManager.js';
 import { Raycaster } from './interaction/Raycaster.js';
 import { Tooltip } from './interaction/Tooltip.js';
 import { Toolbar } from './ui/Toolbar.js';
@@ -111,6 +112,10 @@ async function boot() {
   unitManager.setStructurePositions(structurePositions);
   unitManager.refresh();
 
+  // --- Animals (decorative wanderers) ---
+  const animalManager = new AnimalManager(scene, grid, offset);
+  animalManager.spawn(); // 5-8 random cats, dogs, penguins
+
   // --- Render loop (start early so scene is always live) ---
   let lastTime = performance.now();
 
@@ -121,6 +126,7 @@ async function boot() {
 
     cameraControls.update(dt);
     unitManager.update(dt);
+    animalManager.update(dt);
     gameMap.update(dt);
     fog.update(dt);
     sceneManager.render();
