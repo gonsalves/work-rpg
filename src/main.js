@@ -18,6 +18,7 @@ import { DetailPanel } from './ui/DetailPanel.js';
 import { CONFIG } from './utils/Config.js';
 import { resourceColorForCategory } from './utils/Colors.js';
 import { computeStructureProgress } from './data/ResourceCalculator.js';
+import { THEME, THEME_NIGHT } from './utils/Theme.js';
 
 // ─── Spawn Sequencer ─────────────────────────────────────────────────────────
 // Drives the "characters emerging from the base" intro sequence.
@@ -295,6 +296,20 @@ async function boot() {
     editorPanel = new EditorPanel(uiRoot, store);
 
     // Wire events
+    toolbar.onToggleDayNight((isNight) => {
+      const t = isNight ? 1 : 0;
+      sceneManager.setTimeOfDay(t);
+      unitManager.setTimeOfDay(t);
+
+      // Lerp fog color
+      const dFog = THEME.fog.color;
+      const nFog = THEME_NIGHT.fog.color;
+      const fogR = Math.round(dFog.r + (nFog.r - dFog.r) * t);
+      const fogG = Math.round(dFog.g + (nFog.g - dFog.g) * t);
+      const fogB = Math.round(dFog.b + (nFog.b - dFog.b) * t);
+      fog.setFogColor(fogR, fogG, fogB);
+    });
+
     toolbar.onToggleEditor(() => editorPanel.toggle());
 
     raycaster.onAvatarClick((personId) => detailPanel.open(personId));

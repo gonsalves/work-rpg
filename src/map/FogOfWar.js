@@ -213,5 +213,16 @@ export class FogOfWar {
     return total > 0 ? revealed / total : 1;
   }
 
+  /** Update fog tint color at runtime (for day/night transitions). */
+  setFogColor(r, g, b) {
+    const total = this._texWidth * this._texHeight;
+    for (let i = 0; i < total; i++) {
+      this._texData[i * 4 + 0] = r;
+      this._texData[i * 4 + 1] = g;
+      this._texData[i * 4 + 2] = b;
+    }
+    this._texture.needsUpdate = true;
+  }
+
   getGroup() { return this.group; }
 }

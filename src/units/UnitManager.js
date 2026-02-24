@@ -2,6 +2,8 @@ import { Avatar } from '../scene/Avatar.js';
 import { UnitStateMachine, UnitStates } from './UnitState.js';
 import { computeUnitStamina, computeScoutSpeed, computeGatherRate } from '../data/ResourceCalculator.js';
 import { FogState } from '../map/GameGrid.js';
+import { THEME, THEME_NIGHT } from '../utils/Theme.js';
+import { lerp } from '../utils/Math.js';
 
 const SCOUT_SIGHT = 4;
 const GATHER_SIGHT = 1;
@@ -590,6 +592,16 @@ export class UnitManager {
       list.push({ personId: id, avatar: unit.avatar });
     }
     return list;
+  }
+
+  /** Update shadow disc opacity on all avatars for day/night. */
+  setTimeOfDay(t) {
+    const dayOpacity = THEME.shadowDisc.opacity;
+    const nightOpacity = THEME_NIGHT.shadowDisc.opacity;
+    const opacity = lerp(dayOpacity, nightOpacity, t);
+    for (const unit of this.units.values()) {
+      unit.avatar.setShadowOpacity(opacity);
+    }
   }
 
   getAvatars() {

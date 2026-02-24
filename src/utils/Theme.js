@@ -220,6 +220,7 @@ export const THEME = {
   },
 
   // ─── UI Palette (backward compat for EditorPanel, etc.) ─────────
+  // NOTE: THEME_NIGHT below overrides select properties for nighttime.
   palette: {
     WHITE:      '#F0EBE3',
     LIGHT_GREY: '#E8E4DC',
@@ -248,4 +249,20 @@ export const THEME = {
       '#6A8BB4', '#B85C8A', '#5AB870', '#C4904A',
     ],
   },
+};
+
+// ─── Night overrides (only the properties that change) ──────────
+export const THEME_NIGHT = {
+  scene: {
+    background: 0x1A2040,
+    toneMappingExposure: 0.5,
+  },
+  lighting: {
+    ambient:     { color: 0x304068, intensity: 0.25 },
+    directional: { color: 0x8090C0, intensity: 0.15, position: [-15, 35, -10] },
+    fill:        { color: 0x203050, intensity: 0.08 },
+    hemisphere:  { skyColor: 0x1A2040, groundColor: 0x1A2818, intensity: 0.2 },
+  },
+  fog: { color: { r: 30, g: 35, b: 55 } },
+  shadowDisc: { opacity: 0.06 },
 };

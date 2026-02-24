@@ -80,6 +80,21 @@ body {
   border-color: rgba(232, 228, 220, 0.3);
 }
 
+.toolbar-btn-daynight {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.daynight-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.daynight-label {
+  font-size: 13px;
+}
+
 /* Detail Panel */
 .detail-panel {
   position: absolute;

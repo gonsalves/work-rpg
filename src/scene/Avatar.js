@@ -28,8 +28,8 @@ export class Avatar {
     this.nameSprite.position.y = 2.1;
     this.group.add(this.nameSprite);
 
-    const shadow = createShadowDisc(0.4);
-    this.group.add(shadow);
+    this._shadowDisc = createShadowDisc(0.4);
+    this.group.add(this._shadowDisc);
 
     this.group.userData.personId = personData.id;
     this.group.userData.isAvatar = true;
@@ -184,6 +184,12 @@ export class Avatar {
       this.rightLeg.rotation.x = lerp(this.rightLeg.rotation.x, 0, dt * 5);
       this.leftArm.rotation.x = lerp(this.leftArm.rotation.x, 0, dt * 5);
       this.rightArm.rotation.x = lerp(this.rightArm.rotation.x, 0, dt * 5);
+    }
+  }
+
+  setShadowOpacity(opacity) {
+    if (this._shadowDisc && this._shadowDisc.material) {
+      this._shadowDisc.material.opacity = opacity;
     }
   }
 
