@@ -24,17 +24,19 @@ export class FogOfWar {
     this._currentAlpha = new Float32Array(total);
 
     // Initialize all tiles as fully fogged (white, opaque)
+    // VOID tiles get alpha=0 so fog plane is invisible over void areas.
     const fogR = THEME.fog.color.r;
     const fogG = THEME.fog.color.g;
     const fogB = THEME.fog.color.b;
     for (let i = 0; i < total; i++) {
+      const isVoid = gameGrid.tiles[i].type === 'void';
       this._texData[i * 4 + 0] = fogR;
       this._texData[i * 4 + 1] = fogG;
       this._texData[i * 4 + 2] = fogB;
-      this._texData[i * 4 + 3] = 242; // 0.95 — slightly translucent for smoky look
-      this._revealFloor[i] = 0.95;
-      this._targetAlpha[i] = 0.95;
-      this._currentAlpha[i] = 0.95;
+      this._texData[i * 4 + 3] = isVoid ? 0 : 242;
+      this._revealFloor[i] = isVoid ? 0 : 0.95;
+      this._targetAlpha[i] = isVoid ? 0 : 0.95;
+      this._currentAlpha[i] = isVoid ? 0 : 0.95;
     }
 
     this._texture = new THREE.DataTexture(
@@ -205,7 +207,7 @@ export class FogOfWar {
     let revealed = 0;
     for (let i = 0; i < this.grid.tiles.length; i++) {
       const tile = this.grid.tiles[i];
-      if (tile.type !== 'water') {
+      if (tile.type !== 'water' && tile.type !== 'void') {
         total++;
         if (tile.fogState !== FogState.HIDDEN) revealed++;
       }

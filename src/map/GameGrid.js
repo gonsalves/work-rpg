@@ -9,6 +9,7 @@ export const TileType = {
   STONE: 'stone',
   WATER: 'water',
   FOREST: 'forest',
+  VOID: 'void',
 };
 
 export const FogState = {
@@ -68,7 +69,7 @@ export class GameGrid {
   isWalkable(col, row) {
     const tile = this.getTile(col, row);
     if (!tile) return false;
-    return tile.type !== TileType.WATER;
+    return tile.type !== TileType.WATER && tile.type !== TileType.VOID;
   }
 
   // --- Neighbors (4-directional) ---

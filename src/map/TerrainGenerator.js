@@ -89,10 +89,13 @@ export class TerrainGenerator {
         const coastNoise2 = valueNoise(col * 0.7 + 50, row * 0.7 + 50, 3, null);
         const edgeVariation = ((coastNoise1 + coastNoise2 * 0.5) / 1.5 - 0.5) * 0.18;
 
-        if (hexDist + edgeVariation > 1.0) {
-          type = TileType.WATER;
-        } else if (hexDist + edgeVariation > 0.90) {
-          type = TileType.DIRT; // Sandy shore band
+        const edgeDist = hexDist + edgeVariation;
+        if (edgeDist > 1.12) {
+          type = TileType.VOID;  // Beyond map outline — not rendered
+        } else if (edgeDist > 1.0) {
+          type = TileType.WATER; // Thin coastal water strip
+        } else if (edgeDist > 0.90) {
+          type = TileType.DIRT;  // Sandy shore band
         }
 
         grid.setTile(col, row, { type, elevation: 0 });

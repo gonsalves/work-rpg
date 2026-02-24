@@ -30,9 +30,9 @@ describe('TerrainGenerator', () => {
       const gen = new TerrainGenerator();
       gen.generate(grid);
 
-      // Corner tiles should be water (far from center)
-      expect(grid.getTile(0, 0).type).toBe(TileType.WATER);
-      expect(grid.getTile(47, 47).type).toBe(TileType.WATER);
+      // Corner tiles should be void (far outside hex boundary)
+      expect(grid.getTile(0, 0).type).toBe(TileType.VOID);
+      expect(grid.getTile(47, 47).type).toBe(TileType.VOID);
     });
 
     it('is deterministic with the same seed', () => {
@@ -76,8 +76,8 @@ describe('TerrainGenerator', () => {
       // At 48x48, hexRadius ≈ 23.0 — vertices reach ~23 tiles, edges ~20 tiles from center
       const smallCorner = small.getTile(2, 2);
       const largeCorner = large.getTile(2, 2);
-      expect(smallCorner.type).toBe(TileType.WATER);
-      expect(largeCorner.type).toBe(TileType.WATER);
+      expect(smallCorner.type).toBe(TileType.VOID);
+      expect(largeCorner.type).toBe(TileType.VOID);
     });
 
     it('boundary forms a hexagonal shape (vertex farther than edge midpoint)', () => {
@@ -87,16 +87,18 @@ describe('TerrainGenerator', () => {
 
       const cx = 40, cz = 40;
 
+      const isLand = (t) => t !== TileType.WATER && t !== TileType.VOID;
+
       // Find last land tile along vertex direction (east, row=40)
       let lastLandVertex = 0;
       for (let col = cx; col < 80; col++) {
-        if (grid.getTile(col, cz).type !== TileType.WATER) lastLandVertex = col;
+        if (isLand(grid.getTile(col, cz).type)) lastLandVertex = col;
       }
 
       // Find last land tile along edge midpoint direction (north, col=40)
       let lastLandEdge = 0;
       for (let row = cz; row >= 0; row--) {
-        if (grid.getTile(cx, row).type !== TileType.WATER) lastLandEdge = cz - row;
+        if (isLand(grid.getTile(cx, row).type)) lastLandEdge = cz - row;
       }
 
       // Vertex direction should extend farther than edge midpoint direction

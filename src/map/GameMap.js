@@ -38,6 +38,7 @@ export class GameMap {
     for (let row = 0; row < this.grid.height; row++) {
       for (let col = 0; col < this.grid.width; col++) {
         const tile = this.grid.getTile(col, row);
+        if (tile.type === TileType.VOID) continue; // Don't render void tiles
         if (!byType[tile.type]) byType[tile.type] = [];
         byType[tile.type].push({ col, row });
       }
