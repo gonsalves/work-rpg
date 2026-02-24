@@ -233,23 +233,37 @@ async function boot() {
   base.getGroup().position.set(offset.x, 0, offset.z);
   scene.add(base.getGroup());
 
-  // Block castle wall tiles so A* routes through gates
-  const wallInner = CONFIG.BASE_RADIUS * 0.5;
-  const wallOuter = CONFIG.BASE_RADIUS * 0.85;
-  const gateHalfWidth = 1.5; // tiles — how wide each gate corridor is
-  for (let row = center - CONFIG.BASE_RADIUS; row <= center + CONFIG.BASE_RADIUS; row++) {
-    for (let col = center - CONFIG.BASE_RADIUS; col <= center + CONFIG.BASE_RADIUS; col++) {
-      const dx = col - center;
-      const dz = row - center;
-      const dist = Math.sqrt(dx * dx + dz * dz);
-      if (dist < wallInner || dist > wallOuter) continue;
+  // Block castle wall tiles — square layout matching Base.js geometry
+  // Walls are straight segments at wallOffset from center, not a circular ring
+  const wo = CONFIG.BASE_RADIUS * 0.7; // wallOffset from Base.js
+  const wallTileInner = Math.floor(wo);  // inner tile line
+  const wallTileOuter = Math.ceil(wo);   // outer tile line
+  const wallExtent = wallTileOuter;      // wall runs ±wallExtent from center
+  const gateHalf = 1;                    // gate corridor: 1 tile wide
 
-      // Check if this tile is in a gate corridor (N/S/E/W)
-      const inNSGate = Math.abs(dx) < gateHalfWidth; // N and S gates
-      const inEWGate = Math.abs(dz) < gateHalfWidth; // E and W gates
-      if (inNSGate || inEWGate) continue;
+  // Block tiles along the 4 wall lines (2 tiles thick where fractional)
+  const wallLines = [wallTileInner];
+  if (wallTileOuter !== wallTileInner) wallLines.push(wallTileOuter);
 
-      grid.setTile(col, row, { blocked: true });
+  for (const w of wallLines) {
+    for (let i = -wallExtent; i <= wallExtent; i++) {
+      // N/S walls (horizontal): skip gate at dx=0
+      if (Math.abs(i) >= gateHalf) {
+        grid.setTile(center + i, center + w, { blocked: true });
+        grid.setTile(center + i, center - w, { blocked: true });
+      }
+      // E/W walls (vertical): skip gate at dz=0
+      if (Math.abs(i) >= gateHalf) {
+        grid.setTile(center + w, center + i, { blocked: true });
+        grid.setTile(center - w, center + i, { blocked: true });
+      }
+    }
+  }
+
+  // Block central keep (2×2 footprint → 3×3 tile area)
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      grid.setTile(center + dc, center + dr, { blocked: true });
     }
   }
 

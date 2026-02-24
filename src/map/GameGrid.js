@@ -71,7 +71,7 @@ export class GameGrid {
     const tile = this.getTile(col, row);
     if (!tile) return false;
     if (tile.blocked) return false;
-    return tile.type !== TileType.WATER && tile.type !== TileType.VOID;
+    return tile.type !== TileType.WATER && tile.type !== TileType.VOID && tile.type !== TileType.FOREST;
   }
 
   // --- Neighbors (4-directional) ---

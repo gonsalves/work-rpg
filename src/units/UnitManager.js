@@ -407,9 +407,9 @@ export class UnitManager {
       let moveZ = (dz / dist) * step;
 
       // Separation steering — push away from nearby units
+      let sepX = 0;
+      let sepZ = 0;
       if (unitIdx !== undefined) {
-        let sepX = 0;
-        let sepZ = 0;
         const myX = avatar.group.position.x;
         const myZ = avatar.group.position.z;
         for (let i = 0; i < this._scenePositions.length; i++) {
@@ -424,12 +424,22 @@ export class UnitManager {
             sepZ += (oz / oDist) * factor;
           }
         }
-        moveX += sepX;
-        moveZ += sepZ;
       }
 
-      avatar.group.position.x += moveX;
-      avatar.group.position.z += moveZ;
+      // Try combined movement; fall back to path-only if it hits an obstacle
+      const combinedX = avatar.group.position.x + moveX + sepX;
+      const combinedZ = avatar.group.position.z + moveZ + sepZ;
+      const gridCheck = this._fromScene(combinedX, combinedZ);
+      const checkTile = this.grid.worldToTile(gridCheck.x, gridCheck.z);
+
+      if (this.grid.isWalkable(checkTile.col, checkTile.row)) {
+        avatar.group.position.x = combinedX;
+        avatar.group.position.z = combinedZ;
+      } else {
+        // Separation would push into obstacle — apply path movement only
+        avatar.group.position.x += moveX;
+        avatar.group.position.z += moveZ;
+      }
       avatar._faceDirection(dx, dz, dt);
       avatar._updateWalkAnimation(dt);
     }

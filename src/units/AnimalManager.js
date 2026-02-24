@@ -203,11 +203,21 @@ export class AnimalManager {
           sepZ += (oz / oDist) * factor;
         }
       }
-      moveX += sepX;
-      moveZ += sepZ;
+      // Try combined movement; fall back to path-only if it hits an obstacle
+      const combinedX = pos.x + moveX + sepX;
+      const combinedZ = pos.z + moveZ + sepZ;
+      const checkTile = this.grid.worldToTile(
+        combinedX - this._offset.x,
+        combinedZ - this._offset.z,
+      );
 
-      pos.x += moveX;
-      pos.z += moveZ;
+      if (this.grid.isWalkable(checkTile.col, checkTile.row)) {
+        pos.x = combinedX;
+        pos.z = combinedZ;
+      } else {
+        pos.x += moveX;
+        pos.z += moveZ;
+      }
       entry.animal.faceDirection(dx, dz, dt);
     }
   }

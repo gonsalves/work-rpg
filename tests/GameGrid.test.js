@@ -91,12 +91,12 @@ describe('GameGrid', () => {
       expect(grid.isWalkable(2, 2)).toBe(false);
     });
 
-    it('forest, dirt, stone are walkable', () => {
+    it('dirt, stone are walkable; forest is not', () => {
       const grid = new GameGrid(5, 5);
       grid.setTile(0, 0, { type: TileType.FOREST });
       grid.setTile(1, 0, { type: TileType.DIRT });
       grid.setTile(2, 0, { type: TileType.STONE });
-      expect(grid.isWalkable(0, 0)).toBe(true);
+      expect(grid.isWalkable(0, 0)).toBe(false);
       expect(grid.isWalkable(1, 0)).toBe(true);
       expect(grid.isWalkable(2, 0)).toBe(true);
     });
