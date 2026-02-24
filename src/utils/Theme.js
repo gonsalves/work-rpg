@@ -128,18 +128,22 @@ export const THEME = {
   // ─── Structures (Milestones) ────────────────────────────────────
   structures: {
     wireframe: {
-      color: 0xD0D0D0,
-      opacity: 0.25,
+      color: 0xC4956A,
+      opacity: 0.5,
     },
     solid: {
-      color: 0xF0F0F0,
+      color: 0xE8DDD0,
       roughness: 0.8,
       metalness: 0,
     },
     complete: {
-      color: 0xFAFAFA,
-      emissiveColor: 0xFAFAFA,
-      emissiveIntensity: 0.03,
+      color: 0xE8DDD0,
+      emissiveColor: 0xC4956A,
+      emissiveIntensity: 0.08,
+    },
+    base: {
+      color: 0xC4956A,
+      opacity: 0.3,
     },
   },
 
@@ -165,9 +169,9 @@ export const THEME = {
     },
     legDarken: 0.8,
     carryCube: {
-      color: 0xF5F5F5,
-      emissiveColor: 0xF5F5F5,
-      emissiveIntensity: 0.04,
+      color: 0x6DBE6D,
+      emissiveColor: 0x6DBE6D,
+      emissiveIntensity: 0.15,
       roughness: 0.6,
     },
     nameSprite: {
@@ -209,7 +213,7 @@ export const THEME = {
 
   // ─── Fog of War (frozen — not changed) ──────────────────────────
   fog: {
-    color: { r: 255, g: 255, b: 255 },
+    color: { r: 190, g: 205, b: 220 },
     revealFloor: 0.55,
     fadeInSpeed: 2.0,
     fadeOutSpeed: 0.8,

@@ -181,6 +181,11 @@ export class FogOfWar {
     return tile && tile.fogState !== FogState.HIDDEN;
   }
 
+  isVisible(col, row) {
+    const tile = this.grid.getTile(col, row);
+    return tile && tile.fogState === FogState.VISIBLE;
+  }
+
   /**
    * Returns the percentage of walkable tiles that have been revealed (0–1).
    */

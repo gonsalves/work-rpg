@@ -26,6 +26,7 @@ export class UnitManager {
     this.units = new Map(); // personId -> { avatar, sm }
     this._resourceNodePositions = new Map(); // taskId -> { col, row }
     this._spawned = new Set(); // personIds that have finished spawn sequence
+    this._discoveredNodes = new Set(); // taskIds that have been seen at VISIBLE fog
   }
 
   setWorldOffset(offset) {
@@ -308,10 +309,14 @@ export class UnitManager {
     // Update fog visibility based on unit positions
     this.fog.updateVisibility(unitPositions);
 
-    // Update resource node visibility based on fog
+    // Update resource node visibility based on discovery
     for (const [taskId, pos] of this._resourceNodePositions) {
-      const visible = this.fog.isRevealed(pos.col, pos.row);
-      this.map.setResourceNodeVisible(taskId, visible);
+      // Mark as discovered when a unit is close enough (VISIBLE fog state)
+      if (this.fog.isVisible(pos.col, pos.row)) {
+        this._discoveredNodes.add(taskId);
+      }
+      // Only show nodes that have been discovered (persist after fog re-covers)
+      this.map.setResourceNodeVisible(taskId, this._discoveredNodes.has(taskId));
     }
   }
 

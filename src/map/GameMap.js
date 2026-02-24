@@ -214,7 +214,20 @@ export class GameMap {
     const world = this.grid.tileToWorld(col, row);
     const structGroup = new THREE.Group();
 
-    const boxGeo = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+    // Base ring under structure for visibility
+    const ringGeo = new THREE.RingGeometry(0.5, 0.85, 16);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: THEME.structures.base.color,
+      transparent: true,
+      opacity: THEME.structures.base.opacity,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.set(world.x, 0.01, world.z);
+    ring.receiveShadow = true;
+    structGroup.add(ring);
+
+    const boxGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
     const wireMat = new THREE.MeshStandardMaterial({
       color: THEME.structures.wireframe.color,
       wireframe: true,
@@ -222,7 +235,7 @@ export class GameMap {
       opacity: THEME.structures.wireframe.opacity,
     });
     const wireBox = new THREE.Mesh(boxGeo, wireMat);
-    wireBox.position.set(world.x, 0.45, world.z);
+    wireBox.position.set(world.x, 0.6, world.z);
     wireBox.userData.milestoneId = milestoneId;
     wireBox.userData.isStructure = true;
     structGroup.add(wireBox);
@@ -235,7 +248,7 @@ export class GameMap {
       opacity: 0,
     });
     const solidBox = new THREE.Mesh(boxGeo, solidMat);
-    solidBox.position.set(world.x, 0.45, world.z);
+    solidBox.position.set(world.x, 0.6, world.z);
     solidBox.castShadow = true;
     solidBox.receiveShadow = true;
     structGroup.add(solidBox);
@@ -256,7 +269,7 @@ export class GameMap {
 
     solid.material.opacity = progress * 0.9;
     solid.scale.y = Math.max(0.01, progress);
-    solid.position.y = 0.45 * Math.max(0.01, progress);
+    solid.position.y = 0.6 * Math.max(0.01, progress);
 
     wire.material.opacity = THEME.structures.wireframe.opacity * (1 - progress);
 
@@ -316,8 +329,7 @@ export class GameMap {
           const t = Math.min(1, state.timer / DEPLETE_DURATION);
           const s = 1 - t;
           group.scale.set(s, s, s);
-          // Slight upward float during shrink
-          group.position.y = t * 0.3;
+          group.position.y = 0;
           if (t >= 1) {
             state.phase = 'depleted';
             state.timer = 0;
