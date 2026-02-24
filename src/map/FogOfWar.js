@@ -33,10 +33,10 @@ export class FogOfWar {
       this._texData[i * 4 + 0] = fogR;
       this._texData[i * 4 + 1] = fogG;
       this._texData[i * 4 + 2] = fogB;
-      this._texData[i * 4 + 3] = isVoid ? 0 : 242;
-      this._revealFloor[i] = isVoid ? 0 : 0.95;
-      this._targetAlpha[i] = isVoid ? 0 : 0.95;
-      this._currentAlpha[i] = isVoid ? 0 : 0.95;
+      this._texData[i * 4 + 3] = isVoid ? 0 : 255;
+      this._revealFloor[i] = isVoid ? 0 : 1.0;
+      this._targetAlpha[i] = isVoid ? 0 : 1.0;
+      this._currentAlpha[i] = isVoid ? 0 : 1.0;
     }
 
     this._texture = new THREE.DataTexture(
@@ -65,7 +65,7 @@ export class FogOfWar {
     });
 
     this._mesh = new THREE.Mesh(geo, mat);
-    this._mesh.position.set(this.grid.width / 2, 0.6, this.grid.height / 2);
+    this._mesh.position.set(this.grid.width / 2, 1.5, this.grid.height / 2);
     this._mesh.renderOrder = 10;
     this.group.add(this._mesh);
   }
