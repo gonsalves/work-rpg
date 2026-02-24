@@ -50,7 +50,7 @@ export function createShadowDisc(radius = 0.5) {
   const mat = new THREE.MeshBasicMaterial({
     color: 0x000000,
     transparent: true,
-    opacity: 0.15,
+    opacity: 0.2,
     depthWrite: false
   });
   const mesh = new THREE.Mesh(geo, mat);

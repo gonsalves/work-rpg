@@ -2,7 +2,7 @@ export class TaskForm {
   constructor(task = null, milestones = [], resourceTypes = [], onSave, onCancel) {
     this.el = document.createElement('div');
     this.el.style.padding = '12px';
-    this.el.style.background = 'rgba(0,0,0,0.02)';
+    this.el.style.background = 'rgba(255,255,255,0.03)';
     this.el.style.borderRadius = '8px';
     this.el.style.marginTop = '8px';
 
@@ -52,9 +52,9 @@ export class TaskForm {
         <div class="form-group">
           <label>Discovery / Execution Balance</label>
           <input type="range" name="discoveryPercent" min="0" max="100" value="${disc}" />
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:#999;">
-            <span class="disc-label" style="color:#0078D7;">Scout ${disc}%</span>
-            <span class="exec-label" style="color:#FF6F00;">Gather ${100 - disc}%</span>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;">
+            <span class="disc-label" style="color:#A0AAB8;">Scout ${disc}%</span>
+            <span class="exec-label" style="color:#C0B090;">Gather ${100 - disc}%</span>
           </div>
         </div>
       </div>
@@ -103,7 +103,7 @@ export class TaskForm {
         percentComplete: parseInt(this.el.querySelector('[name="percentComplete"]').value),
       };
       if (!data.name) {
-        this.el.querySelector('[name="name"]').style.borderColor = '#E8422F';
+        this.el.querySelector('[name="name"]').style.borderColor = '#C0A090';
         return;
       }
       onSave(data);

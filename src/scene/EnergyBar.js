@@ -16,24 +16,23 @@ export class EnergyBar {
     const bgMat = new THREE.MeshBasicMaterial({
       color: 0x333333,
       transparent: true,
-      opacity: 0.25
+      opacity: 0.3
     });
     this.bg = new THREE.Mesh(bgGeo, bgMat);
     this.group.add(this.bg);
 
-    // Fill bar
+    // Fill bar — monochrome brightness gradient
     const fillGeo = new THREE.BoxGeometry(BAR_WIDTH, BAR_HEIGHT, BAR_DEPTH);
     this.fillMat = new THREE.MeshBasicMaterial({
-      color: 0x4caf50,
+      color: 0xE8E4DC,
       transparent: true,
-      opacity: 0.9
+      opacity: 0.85
     });
     this.fill = new THREE.Mesh(fillGeo, this.fillMat);
     this.fill.scale.x = 1;
-    this.fill.position.x = 0; // will be adjusted in update
+    this.fill.position.x = 0;
     this.group.add(this.fill);
 
-    // Make it billboard (always face camera) - handled in update
     this.group.renderOrder = 999;
   }
 
@@ -42,18 +41,14 @@ export class EnergyBar {
   }
 
   update(dt, camera) {
-    // Smooth interpolation
     this.currentValue = lerp(this.currentValue, this.targetValue, 1 - Math.pow(0.01, dt));
 
-    // Update fill scale and position
     const v = Math.max(0.001, this.currentValue);
     this.fill.scale.x = v;
     this.fill.position.x = -(BAR_WIDTH * (1 - v)) / 2;
 
-    // Update color
     this.fillMat.color.copy(energyColor(this.currentValue));
 
-    // Billboard: face the camera
     if (camera) {
       this.group.quaternion.copy(camera.quaternion);
     }
@@ -71,12 +66,7 @@ export class EnergyBar {
 
 function energyColor(value) {
   const color = new THREE.Color();
-  if (value > 0.5) {
-    const t = (value - 0.5) * 2;
-    color.set(0xFFC107).lerp(new THREE.Color(0x4CAF50), t);
-  } else {
-    const t = value * 2;
-    color.set(0xE8422F).lerp(new THREE.Color(0xFFC107), t);
-  }
+  // Monochrome: dark grey (depleted) → bright ivory (full)
+  color.set(0x555555).lerp(new THREE.Color(0xE8E4DC), value);
   return color;
 }

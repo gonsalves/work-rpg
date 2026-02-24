@@ -26,7 +26,8 @@ export class Avatar {
     this.energyBar.getGroup().position.y = 2.1;
     this.group.add(this.energyBar.getGroup());
 
-    this.nameSprite = createTextSprite(personData.name, 32, '#2C2C2C');
+    // Light text on dark background for readability
+    this.nameSprite = createTextSprite(personData.name, 32, '#E8E4DC', 'rgba(0,0,0,0.5)');
     this.nameSprite.position.y = 2.5;
     this.group.add(this.nameSprite);
 
@@ -38,18 +39,20 @@ export class Avatar {
   }
 
   _buildBody() {
+    // Matte clay material — pure matte, no metalness
     const mat = new THREE.MeshStandardMaterial({
       color: this.color,
       flatShading: true,
-      roughness: 0.7,
-      metalness: 0.05,
+      roughness: 0.8,
+      metalness: 0,
     });
     this.bodyMat = mat;
 
+    // Skin: warm ivory (clay figurine look)
     const skinMat = new THREE.MeshStandardMaterial({
-      color: 0xffdbac,
+      color: 0xF0EBE3,
       flatShading: true,
-      roughness: 0.7,
+      roughness: 0.8,
       metalness: 0,
     });
 
@@ -88,13 +91,13 @@ export class Avatar {
     this.rightArm.castShadow = true;
     this.group.add(this.rightArm);
 
-    // Carried resource cube (hidden by default)
+    // Carried resource cube — ivory with subtle emissive
     const carryGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
     const carryMat = new THREE.MeshStandardMaterial({
-      color: 0xffd700,
-      emissive: 0xffd700,
-      emissiveIntensity: 0.2,
-      roughness: 0.4,
+      color: 0xF0EBE3,
+      emissive: 0xF0EBE3,
+      emissiveIntensity: 0.08,
+      roughness: 0.6,
     });
     this._carryMesh = new THREE.Mesh(carryGeo, carryMat);
     this._carryMesh.position.set(0, 1.2, 0.3);
@@ -188,8 +191,8 @@ export class Avatar {
   }
 
   highlight() {
-    this.bodyMat.emissive.set(0xffffff);
-    this.bodyMat.emissiveIntensity = 0.15;
+    this.bodyMat.emissive.set(0xF0EBE3);
+    this.bodyMat.emissiveIntensity = 0.12;
   }
 
   unhighlight() {

@@ -70,7 +70,7 @@ export class FogOfWar {
   revealRadius(centerCol, centerRow, radius) {
     const revealed = this.grid.revealTilesInRadius(centerCol, centerRow, radius);
     for (const { col, row } of revealed) {
-      this._setRevealFloor(col, row, 0.25);
+      this._setRevealFloor(col, row, 0.55);
     }
     // Center area starts fully visible
     const centerTiles = this.grid.getTilesInRadius(
@@ -118,7 +118,7 @@ export class FogOfWar {
         const idx = tr * this._texWidth + tc;
         this._targetAlpha[idx] = 0.0;
         // Also permanently lower the reveal floor
-        this._revealFloor[idx] = Math.min(this._revealFloor[idx], 0.25);
+        this._revealFloor[idx] = Math.min(this._revealFloor[idx], 0.55);
       }
 
       // Outer ring: reveal but semi-transparent
@@ -127,7 +127,7 @@ export class FogOfWar {
         if (tile.fogState === FogState.HIDDEN) {
           tile.fogState = FogState.REVEALED;
           const idx = tr * this._texWidth + tc;
-          this._revealFloor[idx] = Math.min(this._revealFloor[idx], 0.25);
+          this._revealFloor[idx] = Math.min(this._revealFloor[idx], 0.55);
         }
       }
     }
@@ -150,8 +150,8 @@ export class FogOfWar {
    */
   update(dt) {
     let changed = false;
-    const fadeInSpeed = 3.0;   // fog clears quickly
-    const fadeOutSpeed = 1.2;  // fog returns gently
+    const fadeInSpeed = 2.0;   // fog clears (slightly slower for cinematic reveal)
+    const fadeOutSpeed = 0.8;  // fog returns gently
 
     for (let i = 0; i < this._currentAlpha.length; i++) {
       const target = this._targetAlpha[i];

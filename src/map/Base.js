@@ -16,23 +16,23 @@ export class Base {
   }
 
   _buildTownCenter() {
-    // Raised platform
+    // Raised platform — brightest ivory
     const platformGeo = new THREE.CylinderGeometry(this.radius * 0.7, this.radius * 0.8, 0.12, 16);
     const platformMat = new THREE.MeshStandardMaterial({
-      color: 0xc4a882,
-      roughness: 0.7,
-      metalness: 0.05,
+      color: 0xF0EBE3,
+      roughness: 0.8,
+      metalness: 0,
     });
     const platform = new THREE.Mesh(platformGeo, platformMat);
     platform.position.set(this.worldX, 0.06, this.worldZ);
     platform.receiveShadow = true;
     this.group.add(platform);
 
-    // Central structure — a small hall/hut
+    // Central structure — clean matte cream walls
     const hallMat = new THREE.MeshStandardMaterial({
-      color: 0xa08060,
-      roughness: 0.6,
-      metalness: 0.1,
+      color: 0xE0DAD0,
+      roughness: 0.8,
+      metalness: 0,
     });
 
     // Walls
@@ -42,12 +42,13 @@ export class Base {
     walls.castShadow = true;
     this.group.add(walls);
 
-    // Roof
+    // Roof — slightly shadowed cream
     const roofGeo = new THREE.ConeGeometry(1.0, 0.6, 4);
     const roofMat = new THREE.MeshStandardMaterial({
-      color: 0x8b4513,
-      roughness: 0.8,
+      color: 0xD5CFC5,
+      roughness: 0.85,
       flatShading: true,
+      metalness: 0,
     });
     const roof = new THREE.Mesh(roofGeo, roofMat);
     roof.position.set(this.worldX, 1.22, this.worldZ);
@@ -55,19 +56,19 @@ export class Base {
     roof.castShadow = true;
     this.group.add(roof);
 
-    // Flag pole
+    // Flag pole — neutral grey
     const poleGeo = new THREE.CylinderGeometry(0.02, 0.02, 1.2, 4);
-    const poleMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.7 });
     const pole = new THREE.Mesh(poleGeo, poleMat);
     pole.position.set(this.worldX + 0.5, 1.4, this.worldZ + 0.5);
     this.group.add(pole);
 
-    // Flag
+    // Flag — ivory
     const flagGeo = new THREE.PlaneGeometry(0.4, 0.25);
     const flagMat = new THREE.MeshStandardMaterial({
-      color: 0xd4af37,
+      color: 0xF0EBE3,
       side: THREE.DoubleSide,
-      roughness: 0.5,
+      roughness: 0.7,
     });
     const flag = new THREE.Mesh(flagGeo, flagMat);
     flag.position.set(this.worldX + 0.72, 1.85, this.worldZ + 0.5);
@@ -75,12 +76,10 @@ export class Base {
   }
 
   getDepositPosition() {
-    // Just in front of the town center
     return { x: this.worldX, z: this.worldZ + this.radius * 0.5 };
   }
 
   getSpawnPosition(index, total) {
-    // Spread units in a semicircle in front of the base
     const angle = Math.PI * 0.3 + (index / Math.max(1, total)) * Math.PI * 0.4;
     const r = this.radius + 1;
     return {

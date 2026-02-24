@@ -81,7 +81,7 @@ export class DetailPanel {
 
       <div class="detail-section">
         <div class="detail-section-title">Current Activity</div>
-        <div style="padding:8px 12px;background:rgba(0,0,0,0.03);border-radius:6px;font-size:13px;color:#333;">
+        <div style="padding:8px 12px;background:rgba(255,255,255,0.04);border-radius:6px;font-size:13px;color:#E8E4DC;">
           ${activityLabel}
         </div>
       </div>
@@ -145,16 +145,16 @@ export class DetailPanel {
           <div class="task-phase-discovery" style="width:${discoveryPct}%;"></div>
           <div class="task-phase-execution" style="width:${100 - discoveryPct}%;"></div>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:11px;color:#999;">
-          <span style="color:#0078D7;">Scout ${discoveryPct}%</span>
-          <span style="color:#FF6F00;">Gather ${100 - discoveryPct}%</span>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;">
+          <span style="color:#A0AAB8;">Scout ${discoveryPct}%</span>
+          <span style="color:#C0B090;">Gather ${100 - discoveryPct}%</span>
         </div>
       </div>
 
       <div class="detail-section">
         <div class="detail-section-title">Resources (${tasks.length})</div>
         ${tasks.map(task => this._renderTask(task, breakdown)).join('')}
-        ${tasks.length === 0 ? '<div style="color:#999;font-size:12px;">No tasks assigned</div>' : ''}
+        ${tasks.length === 0 ? '<div style="color:#666;font-size:12px;">No tasks assigned</div>' : ''}
       </div>
     `;
 
@@ -184,7 +184,7 @@ export class DetailPanel {
           : `${daysUntilDue} days remaining`;
 
     const categoryBadge = task.category
-      ? `<span style="background:rgba(0,120,215,0.1);color:#0078D7;padding:2px 6px;border-radius:4px;font-size:10px;">${task.category}</span>`
+      ? `<span style="background:rgba(160,170,184,0.12);color:#A0AAB8;padding:2px 6px;border-radius:4px;font-size:10px;">${task.category}</span>`
       : '';
 
     return `
@@ -211,7 +211,7 @@ export class DetailPanel {
 }
 
 function staminaBarColor(value) {
-  if (value > 0.65) return '#4CAF50';
-  if (value > 0.35) return '#FFC107';
-  return '#E8422F';
+  if (value > 0.65) return '#8A9A7C';
+  if (value > 0.35) return '#C8C0A0';
+  return '#C0A090';
 }

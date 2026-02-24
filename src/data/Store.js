@@ -1,6 +1,6 @@
 import { generateUUID } from '../utils/Math.js';
 
-const STORAGE_KEY = 'workrpg-data-v2';
+const STORAGE_KEY = 'workrpg-data-v3';
 
 export class Store {
   constructor(adapter) {

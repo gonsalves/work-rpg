@@ -38,7 +38,7 @@ export class EditorPanel {
       </div>
       <div class="editor-content">
         ${people.map(p => this._renderPerson(p)).join('')}
-        ${people.length === 0 ? '<p style="color:#999;text-align:center;padding:20px;">No team members yet. Add someone!</p>' : ''}
+        ${people.length === 0 ? '<p style="color:#666;text-align:center;padding:20px;">No team members yet. Add someone!</p>' : ''}
       </div>
     `;
 
@@ -117,7 +117,7 @@ export class EditorPanel {
 
   _renderTaskRow(personId, task) {
     const categoryBadge = task.category
-      ? `<span style="background:rgba(0,120,215,0.1);color:#0078D7;padding:1px 5px;border-radius:3px;font-size:10px;">${task.category}</span>`
+      ? `<span style="background:rgba(160,170,184,0.12);color:#A0AAB8;padding:1px 5px;border-radius:3px;font-size:10px;">${task.category}</span>`
       : '';
 
     return `
@@ -127,10 +127,10 @@ export class EditorPanel {
             <div class="task-name" style="font-size:13px;">${task.name}</div>
             ${categoryBadge}
           </div>
-          <div style="display:flex;gap:12px;font-size:11px;color:#999;">
+          <div style="display:flex;gap:12px;font-size:11px;color:#666;">
             <span>${task.percentComplete}% done</span>
-            <span style="color:#0078D7;">D:${task.discoveryPercent}%</span>
-            <span style="color:#FF6F00;">E:${task.executionPercent}%</span>
+            <span style="color:#A0AAB8;">D:${task.discoveryPercent}%</span>
+            <span style="color:#C0B090;">E:${task.executionPercent}%</span>
             <span>${task.expectedDate || 'No date'}</span>
           </div>
         </div>
@@ -145,12 +145,12 @@ export class EditorPanel {
     const isEdit = !!person;
 
     const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:100;display:flex;align-items:center;justify-content:center;pointer-events:auto;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;display:flex;align-items:center;justify-content:center;pointer-events:auto;';
 
     const form = document.createElement('div');
-    form.style.cssText = 'background:white;border-radius:12px;padding:24px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.15);';
+    form.style.cssText = 'background:#1A1A1A;border-radius:12px;padding:24px;width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.3);color:#E8E4DC;border:1px solid rgba(255,255,255,0.08);';
     form.innerHTML = `
-      <h3 style="margin-bottom:16px;">${isEdit ? 'Edit' : 'Add'} Person</h3>
+      <h3 style="margin-bottom:16px;color:#F0EBE3;">${isEdit ? 'Edit' : 'Add'} Person</h3>
       <div class="form-group">
         <label>Name</label>
         <input type="text" name="name" value="${person?.name || ''}" placeholder="Full name" />
@@ -178,7 +178,7 @@ export class EditorPanel {
       const color = form.querySelector('[name="color"]').value;
 
       if (!name) {
-        form.querySelector('[name="name"]').style.borderColor = '#E8422F';
+        form.querySelector('[name="name"]').style.borderColor = '#C0A090';
         return;
       }
 

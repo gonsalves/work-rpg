@@ -7,12 +7,12 @@ function daysFromNow(days) {
 }
 
 const PEOPLE = [
-  { id: 'seed-1', name: 'Aprajit Kar', role: 'Associate Director, Product Design - UX', color: '#E8422F' },
-  { id: 'seed-2', name: 'Atul Kumar', role: 'Associate Director, Product Design', color: '#0078D7' },
-  { id: 'seed-3', name: 'Elson Jithesh Dsouza', role: 'Product Design Manager', color: '#FF6F00' },
-  { id: 'seed-4', name: 'Sindhu Shivaprasad', role: 'Lead Product Content Designer', color: '#9C27B0' },
-  { id: 'seed-5', name: 'Surabhi Vinod Manchalwar', role: 'Product Design Manager', color: '#00BCD4' },
-  { id: 'seed-6', name: 'Yugendran Muthuvel', role: 'Design Head, Share.Market', color: '#3F51B5' },
+  { id: 'seed-1', name: 'Aprajit Kar', role: 'Associate Director, Product Design - UX', color: '#D4C4B0' },
+  { id: 'seed-2', name: 'Atul Kumar', role: 'Associate Director, Product Design', color: '#BFC0C5' },
+  { id: 'seed-3', name: 'Elson Jithesh Dsouza', role: 'Product Design Manager', color: '#C8BDA8' },
+  { id: 'seed-4', name: 'Sindhu Shivaprasad', role: 'Lead Product Content Designer', color: '#ADB0B5' },
+  { id: 'seed-5', name: 'Surabhi Vinod Manchalwar', role: 'Product Design Manager', color: '#D0C0A8' },
+  { id: 'seed-6', name: 'Yugendran Muthuvel', role: 'Design Head, Share.Market', color: '#B5B8A8' },
 ];
 
 const TASKS = [
