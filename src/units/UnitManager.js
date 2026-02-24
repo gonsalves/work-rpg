@@ -1,14 +1,16 @@
 import { Avatar } from '../scene/Avatar.js';
 import { UnitStateMachine, UnitStates } from './UnitState.js';
 import { computeUnitStamina, computeScoutSpeed, computeGatherRate } from '../data/ResourceCalculator.js';
+import { FogState } from '../map/GameGrid.js';
 
-const SCOUT_SIGHT = 3;
+const SCOUT_SIGHT = 4;
 const GATHER_SIGHT = 1;
 const GATHER_TIME = 4;   // seconds to fully gather a resource
 const BUILD_TIME = 3;    // seconds to deposit / build
 const DEPOSIT_TIME = 1.5;
 const REST_TIME = 5;
 const IDLE_WANDER_RADIUS = 3;
+const SCOUT_FRONTIER_SEARCH = 200; // max tiles to check in BFS for frontier
 
 export class UnitManager {
   constructor(scene, gameGrid, gameMap, fogOfWar, store, base) {
@@ -19,9 +21,9 @@ export class UnitManager {
     this.store = store;
     this.base = base;
     this._camera = null;
-    this._worldOffset = { x: 0, z: 0 }; // scene offset from grid coords
+    this._worldOffset = { x: 0, z: 0 };
 
-    this.units = new Map(); // personId -> { avatar, sm (state machine) }
+    this.units = new Map(); // personId -> { avatar, sm }
     this._resourceNodePositions = new Map(); // taskId -> { col, row }
   }
 
@@ -40,7 +42,6 @@ export class UnitManager {
   }
 
   setResourceNodePositions(positions) {
-    // positions: [{ taskId, col, row }]
     for (const p of positions) {
       this._resourceNodePositions.set(p.taskId, { col: p.col, row: p.row });
     }
@@ -97,12 +98,14 @@ export class UnitManager {
     }
   }
 
+  // ─── Behavior Assignment ──────────────────────────────────────────
+
   _assignBehavior(unit, person) {
     const tasks = this.store.getTasksForPerson(person.id);
 
     if (tasks.length === 0) {
-      // No work — idle wander near base
-      unit.sm.transition(UnitStates.IDLE);
+      // No work assigned — go scout unexplored territory
+      this._assignScoutMission(unit);
       return;
     }
 
@@ -113,7 +116,7 @@ export class UnitManager {
       return;
     }
 
-    // Find highest-priority task that isn't complete
+    // Find highest-priority incomplete task
     const incompleteTasks = tasks.filter(t => t.percentComplete < 100);
     if (incompleteTasks.length === 0) {
       // All tasks done — check if any milestone needs building
@@ -122,7 +125,6 @@ export class UnitManager {
         const msTasks = this.store.getTasksForMilestone(ms.id);
         const allDone = msTasks.length > 0 && msTasks.every(t => t.percentComplete >= 100);
         if (!allDone && this._structurePositions?.has(ms.id)) {
-          // Go build the structure
           const pos = this._structurePositions.get(ms.id);
           unit.sm.transition(UnitStates.MOVING_TO_STRUCTURE, {
             assignedMilestoneId: ms.id,
@@ -133,7 +135,8 @@ export class UnitManager {
           return;
         }
       }
-      unit.sm.transition(UnitStates.IDLE);
+      // Nothing to build either — go scout
+      this._assignScoutMission(unit);
       return;
     }
 
@@ -148,7 +151,7 @@ export class UnitManager {
     const discoveryRatio = task.discoveryPercent / 100;
     const nodePos = this._resourceNodePositions.get(task.id);
 
-    // If discovery-heavy and resource not yet revealed → scout
+    // If discovery-heavy and resource not yet revealed → scout toward it
     if (discoveryRatio > 0.5 && nodePos && !this.fog.isRevealed(nodePos.col, nodePos.row)) {
       unit.sm.transition(UnitStates.SCOUTING, {
         assignedTaskId: task.id,
@@ -171,9 +174,83 @@ export class UnitManager {
       return;
     }
 
-    // No node position found — idle
-    unit.sm.transition(UnitStates.IDLE);
+    // No node position — scout instead of just sitting idle
+    this._assignScoutMission(unit);
   }
+
+  /**
+   * Send a unit to explore the nearest unexplored frontier.
+   * Uses BFS from the unit's current position to find the closest
+   * walkable HIDDEN tile, then paths toward it.
+   */
+  _assignScoutMission(unit) {
+    const avatarPos = unit.avatar.group.position;
+    const gridWorld = this._fromScene(avatarPos.x, avatarPos.z);
+    const startTile = this.grid.worldToTile(gridWorld.x, gridWorld.z);
+
+    const target = this._findFrontierTile(startTile.col, startTile.row);
+    if (target) {
+      unit.sm.transition(UnitStates.SCOUTING, {
+        assignedTaskId: null,
+        targetCol: target.col,
+        targetRow: target.row,
+      });
+      this._pathTo(unit, target.col, target.row);
+    } else {
+      // Entire map explored — wander near base
+      unit.sm.transition(UnitStates.IDLE);
+    }
+  }
+
+  /**
+   * BFS outward from (startCol, startRow) to find the nearest walkable
+   * tile that borders at least one HIDDEN tile (the "frontier").
+   * Returns {col, row} or null if fully explored.
+   */
+  _findFrontierTile(startCol, startRow) {
+    const visited = new Set();
+    const queue = [{ col: startCol, row: startRow }];
+    visited.add(`${startCol},${startRow}`);
+
+    const frontierCandidates = [];
+    let checked = 0;
+
+    while (queue.length > 0 && checked < SCOUT_FRONTIER_SEARCH) {
+      const { col, row } = queue.shift();
+      checked++;
+
+      const tile = this.grid.getTile(col, row);
+      if (!tile || !this.grid.isWalkable(col, row)) continue;
+
+      // Is this tile on the frontier? (revealed/visible tile adjacent to hidden tile)
+      if (tile.fogState !== FogState.HIDDEN) {
+        const neighbors = this.grid.getNeighbors(col, row);
+        for (const n of neighbors) {
+          const nTile = this.grid.getTile(n.col, n.row);
+          if (nTile && nTile.fogState === FogState.HIDDEN && this.grid.isWalkable(n.col, n.row)) {
+            frontierCandidates.push({ col, row });
+            break;
+          }
+        }
+      }
+
+      // Expand BFS
+      for (const n of this.grid.getNeighbors(col, row)) {
+        const key = `${n.col},${n.row}`;
+        if (!visited.has(key)) {
+          visited.add(key);
+          queue.push(n);
+        }
+      }
+    }
+
+    if (frontierCandidates.length === 0) return null;
+
+    // Pick a random frontier tile (not always the nearest — adds variety)
+    return frontierCandidates[Math.floor(Math.random() * frontierCandidates.length)];
+  }
+
+  // ─── Pathfinding ──────────────────────────────────────────────────
 
   _pathTo(unit, col, row) {
     const avatarPos = unit.avatar.group.position;
@@ -190,6 +267,8 @@ export class UnitManager {
     this._pathTo(unit, tile.col, tile.row);
   }
 
+  // ─── Update Loop ──────────────────────────────────────────────────
+
   update(dt) {
     const unitPositions = [];
 
@@ -201,7 +280,7 @@ export class UnitManager {
           this._handleIdle(unit, dt);
           break;
         case UnitStates.SCOUTING:
-          this._handleMovement(unit, dt, computeScoutSpeed(this.store.getTasksForPerson(personId)) * 2.5);
+          this._handleScouting(unit, dt, personId);
           break;
         case UnitStates.MOVING_TO_RESOURCE:
           this._handleMovement(unit, dt, 3.0);
@@ -246,8 +325,10 @@ export class UnitManager {
     }
   }
 
+  // ─── State Handlers ───────────────────────────────────────────────
+
   _handleIdle(unit, dt) {
-    // Gentle wander near base
+    // Gentle wander near base while waiting for reassignment
     unit.sm.stateTimer -= dt;
 
     if (unit.sm.stateTimer <= 0) {
@@ -262,18 +343,22 @@ export class UnitManager {
       unit.sm.stateTimer = 2 + Math.random() * 3;
     }
 
-    // Re-evaluate behavior periodically
-    if (Math.random() < dt * 0.2) {
+    // Re-evaluate behavior frequently so units don't stay idle long
+    if (Math.random() < dt * 0.5) {
       const person = this.store.getPerson(unit.sm.personId);
       if (person) this._assignBehavior(unit, person);
     }
+  }
+
+  _handleScouting(unit, dt, personId) {
+    const speed = computeScoutSpeed(this.store.getTasksForPerson(personId)) * 3.0;
+    this._handleMovement(unit, dt, speed);
   }
 
   _handleMovement(unit, dt, speed) {
     const { avatar, sm } = unit;
 
     if (!sm.path || sm.pathIndex >= sm.path.length) {
-      // Arrived at destination
       this._onArrival(unit);
       return;
     }
@@ -302,18 +387,18 @@ export class UnitManager {
 
     switch (sm.state) {
       case UnitStates.SCOUTING:
-        // Arrived at resource location — fog should be revealed now
-        // Transition to moving to resource (or gather directly)
-        sm.transition(UnitStates.MOVING_TO_RESOURCE, {
-          assignedTaskId: sm.assignedTaskId,
-          targetCol: sm.targetCol,
-          targetRow: sm.targetRow,
-        });
-        // Already at the location, so immediately arrive
-        sm.transition(UnitStates.GATHERING, {
-          assignedTaskId: sm.assignedTaskId,
-          carryingResource: null,
-        });
+        if (sm.assignedTaskId) {
+          // Was scouting toward a task resource — now gather it
+          sm.transition(UnitStates.GATHERING, {
+            assignedTaskId: sm.assignedTaskId,
+            carryingResource: null,
+          });
+        } else {
+          // General exploration — pick another frontier target
+          const person = this.store.getPerson(sm.personId);
+          sm.transition(UnitStates.IDLE);
+          if (person) this._assignBehavior(unit, person);
+        }
         break;
 
       case UnitStates.MOVING_TO_RESOURCE:
@@ -350,11 +435,9 @@ export class UnitManager {
     sm.stateTimer += dt * gatherRate;
     sm.gatherProgress = Math.min(1, sm.stateTimer / GATHER_TIME);
 
-    // Play gather animation
     unit.avatar.playGatherAnimation(dt);
 
     if (sm.gatherProgress >= 1) {
-      // Gathered — pick up resource
       const task = this.store.getTask(sm.assignedTaskId);
       sm.carryingResource = {
         type: task ? (task.category || 'Resource') : 'Resource',
@@ -362,7 +445,6 @@ export class UnitManager {
       };
       unit.avatar.setCarrying(true);
 
-      // Head back to base
       sm.transition(UnitStates.RETURNING_TO_BASE, {
         carryingResource: sm.carryingResource,
         assignedTaskId: sm.assignedTaskId,
@@ -376,7 +458,6 @@ export class UnitManager {
     sm.stateTimer += dt;
 
     if (sm.stateTimer >= DEPOSIT_TIME) {
-      // Deposit complete — advance task progress
       const task = this.store.getTask(sm.assignedTaskId);
       if (task && task.percentComplete < 100) {
         const advance = Math.min(100 - task.percentComplete, 15 + Math.random() * 10);
@@ -388,7 +469,6 @@ export class UnitManager {
       unit.avatar.setCarrying(false);
       sm.carryingResource = null;
 
-      // Re-evaluate what to do next
       const person = this.store.getPerson(sm.personId);
       sm.transition(UnitStates.IDLE);
       if (person) this._assignBehavior(unit, person);
@@ -419,6 +499,8 @@ export class UnitManager {
       if (person) this._assignBehavior(unit, person);
     }
   }
+
+  // ─── Public API ───────────────────────────────────────────────────
 
   setCamera(camera) {
     this._camera = camera;
