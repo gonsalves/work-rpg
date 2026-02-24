@@ -145,7 +145,7 @@ export class TerrainGenerator {
         }
       }
 
-      grid.setTile(col, row, { resourceNodeId: task.id, type: TileType.GRASS });
+      grid.setTile(col, row, { resourceNodeId: task.id, type: TileType.GRASS, blocked: true });
 
       nodes.push({
         col,
@@ -197,7 +197,16 @@ export class TerrainGenerator {
         }
       }
 
-      grid.setTile(col, row, { structureId: milestone.id, type: TileType.DIRT });
+      grid.setTile(col, row, { structureId: milestone.id, type: TileType.DIRT, blocked: true });
+      // Block cross pattern around structure (structures are ~2 tiles wide)
+      const crossDirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (const [dc, dr] of crossDirs) {
+        const nc = col + dc;
+        const nr = row + dr;
+        if (grid.inBounds(nc, nr) && grid.isWalkable(nc, nr)) {
+          grid.setTile(nc, nr, { blocked: true });
+        }
+      }
       positions.push({ col, row, milestoneId: milestone.id });
     }
 

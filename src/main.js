@@ -225,12 +225,32 @@ async function boot() {
 
   // Reveal base area
   const center = Math.floor(mapSize / 2);
-  fog.revealRadius(center, center, CONFIG.BASE_RADIUS + 2);
+  fog.revealRadius(center, center, CONFIG.BASE_RADIUS + 8);
 
   // --- Base ---
   const base = new Base(grid, center, center, CONFIG.BASE_RADIUS);
   base.getGroup().position.set(offset.x, 0, offset.z);
   scene.add(base.getGroup());
+
+  // Block castle wall tiles so A* routes through gates
+  const wallInner = CONFIG.BASE_RADIUS * 0.5;
+  const wallOuter = CONFIG.BASE_RADIUS * 0.85;
+  const gateHalfWidth = 1.5; // tiles — how wide each gate corridor is
+  for (let row = center - CONFIG.BASE_RADIUS; row <= center + CONFIG.BASE_RADIUS; row++) {
+    for (let col = center - CONFIG.BASE_RADIUS; col <= center + CONFIG.BASE_RADIUS; col++) {
+      const dx = col - center;
+      const dz = row - center;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < wallInner || dist > wallOuter) continue;
+
+      // Check if this tile is in a gate corridor (N/S/E/W)
+      const inNSGate = Math.abs(dx) < gateHalfWidth; // N and S gates
+      const inEWGate = Math.abs(dz) < gateHalfWidth; // E and W gates
+      if (inNSGate || inEWGate) continue;
+
+      grid.setTile(col, row, { blocked: true });
+    }
+  }
 
   // --- Camera controls ---
   const bounds = gameMap.getBounds();
@@ -291,7 +311,7 @@ async function boot() {
     }
 
     unitManager.update(dt);
-    animalManager.update(dt);
+    animalManager.update(dt, unitManager.getScenePositions());
     gameMap.update(dt);
     fog.update(dt);
     sceneManager.render();

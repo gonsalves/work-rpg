@@ -12,6 +12,8 @@ const PAUSE_MAX = 8;           // seconds
 const WANDER_RADIUS = 6;       // max tiles from current position
 const SPAWN_MIN_RADIUS = 4;    // min distance from map center to spawn
 const SPAWN_MAX_RADIUS = 18;   // max distance from map center to spawn
+const SEPARATION_RADIUS = 0.8;
+const SEPARATION_STRENGTH = 1.5;
 
 export class AnimalManager {
   /**
@@ -103,9 +105,14 @@ export class AnimalManager {
 
   /**
    * Update all animals each frame.
+   * @param {number} dt
+   * @param {Array<{x:number, z:number}>} [unitPositions] — scene positions of people units
    */
-  update(dt) {
-    for (const entry of this._animals) {
+  update(dt, unitPositions) {
+    this._unitPositions = unitPositions || [];
+
+    for (let i = 0; i < this._animals.length; i++) {
+      const entry = this._animals[i];
       // Skip unspawned animals
       if (!entry.spawned) continue;
 
@@ -114,7 +121,7 @@ export class AnimalManager {
           this._handleIdle(entry, dt);
           break;
         case 'walking':
-          this._handleWalking(entry, dt);
+          this._handleWalking(entry, dt, i);
           break;
       }
 
@@ -142,7 +149,7 @@ export class AnimalManager {
     }
   }
 
-  _handleWalking(entry, dt) {
+  _handleWalking(entry, dt, animalIdx) {
     if (!entry.path || entry.pathIndex >= entry.path.length) {
       // Arrived — pause
       entry.state = 'idle';
@@ -167,8 +174,40 @@ export class AnimalManager {
       entry.pathIndex++;
     } else {
       const move = Math.min(WANDER_SPEED * dt, dist);
-      pos.x += (dx / dist) * move;
-      pos.z += (dz / dist) * move;
+      let moveX = (dx / dist) * move;
+      let moveZ = (dz / dist) * move;
+
+      // Separation from other animals
+      let sepX = 0;
+      let sepZ = 0;
+      for (let i = 0; i < this._animals.length; i++) {
+        if (i === animalIdx || !this._animals[i].spawned) continue;
+        const otherPos = this._animals[i].animal.group.position;
+        const ox = pos.x - otherPos.x;
+        const oz = pos.z - otherPos.z;
+        const oDist = Math.sqrt(ox * ox + oz * oz);
+        if (oDist < SEPARATION_RADIUS && oDist > 0.01) {
+          const factor = (1 - oDist / SEPARATION_RADIUS) * SEPARATION_STRENGTH * dt;
+          sepX += (ox / oDist) * factor;
+          sepZ += (oz / oDist) * factor;
+        }
+      }
+      // Separation from people units
+      for (const unitPos of this._unitPositions) {
+        const ox = pos.x - unitPos.x;
+        const oz = pos.z - unitPos.z;
+        const oDist = Math.sqrt(ox * ox + oz * oz);
+        if (oDist < SEPARATION_RADIUS && oDist > 0.01) {
+          const factor = (1 - oDist / SEPARATION_RADIUS) * SEPARATION_STRENGTH * dt;
+          sepX += (ox / oDist) * factor;
+          sepZ += (oz / oDist) * factor;
+        }
+      }
+      moveX += sepX;
+      moveZ += sepZ;
+
+      pos.x += moveX;
+      pos.z += moveZ;
       entry.animal.faceDirection(dx, dz, dt);
     }
   }

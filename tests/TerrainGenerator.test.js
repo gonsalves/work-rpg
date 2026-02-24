@@ -124,7 +124,7 @@ describe('TerrainGenerator', () => {
       expect(nodes[1].taskId).toBe('t2');
     });
 
-    it('places nodes on walkable tiles', () => {
+    it('places nodes on valid terrain (not water/void)', () => {
       const grid = new GameGrid(40, 40);
       const gen = new TerrainGenerator();
       gen.generate(grid);
@@ -135,7 +135,10 @@ describe('TerrainGenerator', () => {
 
       const nodes = gen.placeResourceNodes(grid, tasks);
       for (const node of nodes) {
-        expect(grid.isWalkable(node.col, node.row)).toBe(true);
+        const tile = grid.getTile(node.col, node.row);
+        expect(tile.type).not.toBe('water');
+        expect(tile.type).not.toBe('void');
+        expect(tile.blocked).toBe(true); // resource tiles are blocked for pathfinding
       }
     });
 
@@ -185,7 +188,7 @@ describe('TerrainGenerator', () => {
       expect(positions[1].milestoneId).toBe('ms-2');
     });
 
-    it('places structures on walkable tiles', () => {
+    it('places structures on valid terrain and blocks tiles', () => {
       const grid = new GameGrid(40, 40);
       const gen = new TerrainGenerator();
       gen.generate(grid);
@@ -194,7 +197,10 @@ describe('TerrainGenerator', () => {
       const positions = gen.placeStructures(grid, milestones);
 
       for (const pos of positions) {
-        expect(grid.isWalkable(pos.col, pos.row)).toBe(true);
+        const tile = grid.getTile(pos.col, pos.row);
+        expect(tile.type).not.toBe('water');
+        expect(tile.type).not.toBe('void');
+        expect(tile.blocked).toBe(true); // structure tiles are blocked for pathfinding
       }
     });
 

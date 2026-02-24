@@ -13,6 +13,8 @@ const DEPOSIT_TIME = 1.5;
 const REST_TIME = 5;
 const IDLE_WANDER_RADIUS = 3;
 const SCOUT_FRONTIER_SEARCH = 200; // max tiles to check in BFS for frontier
+const SEPARATION_RADIUS = 0.8;     // tiles — distance at which units start pushing apart
+const SEPARATION_STRENGTH = 2.0;   // how strongly units repel each other
 
 export class UnitManager {
   constructor(scene, gameGrid, gameMap, fogOfWar, store, base) {
@@ -249,7 +251,27 @@ export class UnitManager {
     const avatarPos = unit.avatar.group.position;
     const gridWorld = this._fromScene(avatarPos.x, avatarPos.z);
     const currentTile = this.grid.worldToTile(gridWorld.x, gridWorld.z);
-    const path = this.grid.findPath(currentTile.col, currentTile.row, col, row);
+
+    // If target tile is blocked (resource/structure), path to nearest walkable neighbor
+    let targetCol = col;
+    let targetRow = row;
+    if (!this.grid.isWalkable(col, row)) {
+      const neighbors = this.grid.getNeighbors(col, row);
+      let bestDist = Infinity;
+      for (const n of neighbors) {
+        if (!this.grid.isWalkable(n.col, n.row)) continue;
+        const dc = n.col - currentTile.col;
+        const dr = n.row - currentTile.row;
+        const d = dc * dc + dr * dr;
+        if (d < bestDist) {
+          bestDist = d;
+          targetCol = n.col;
+          targetRow = n.row;
+        }
+      }
+    }
+
+    const path = this.grid.findPath(currentTile.col, currentTile.row, targetCol, targetRow);
     unit.sm.path = path;
     unit.sm.pathIndex = 0;
   }
@@ -265,6 +287,14 @@ export class UnitManager {
   update(dt) {
     const unitPositions = [];
 
+    // Collect all scene positions for separation steering
+    this._scenePositions = [];
+    for (const [, u] of this.units) {
+      const p = u.avatar.group.position;
+      this._scenePositions.push({ x: p.x, z: p.z });
+    }
+
+    let unitIdx = 0;
     for (const [personId, unit] of this.units) {
       const { avatar, sm } = unit;
 
@@ -273,22 +303,22 @@ export class UnitManager {
           this._handleIdle(unit, dt);
           break;
         case UnitStates.SCOUTING:
-          this._handleScouting(unit, dt, personId);
+          this._handleScouting(unit, dt, personId, unitIdx);
           break;
         case UnitStates.MOVING_TO_RESOURCE:
-          this._handleMovement(unit, dt, 3.0);
+          this._handleMovement(unit, dt, 3.0, unitIdx);
           break;
         case UnitStates.GATHERING:
           this._handleGathering(unit, dt);
           break;
         case UnitStates.RETURNING_TO_BASE:
-          this._handleMovement(unit, dt, 2.5);
+          this._handleMovement(unit, dt, 2.5, unitIdx);
           break;
         case UnitStates.DEPOSITING:
           this._handleDepositing(unit, dt);
           break;
         case UnitStates.MOVING_TO_STRUCTURE:
-          this._handleMovement(unit, dt, 2.5);
+          this._handleMovement(unit, dt, 2.5, unitIdx);
           break;
         case UnitStates.BUILDING:
           this._handleBuilding(unit, dt);
@@ -298,6 +328,7 @@ export class UnitManager {
           break;
       }
 
+      unitIdx++;
       avatar.update(dt, this._camera);
 
       // Track unit position for fog updates (convert scene to grid coords)
@@ -347,12 +378,12 @@ export class UnitManager {
     }
   }
 
-  _handleScouting(unit, dt, personId) {
+  _handleScouting(unit, dt, personId, unitIdx) {
     const speed = computeScoutSpeed(this.store.getTasksForPerson(personId)) * 3.0;
-    this._handleMovement(unit, dt, speed);
+    this._handleMovement(unit, dt, speed, unitIdx);
   }
 
-  _handleMovement(unit, dt, speed) {
+  _handleMovement(unit, dt, speed, unitIdx) {
     const { avatar, sm } = unit;
 
     if (!sm.path || sm.pathIndex >= sm.path.length) {
@@ -372,8 +403,33 @@ export class UnitManager {
       sm.pathIndex++;
     } else {
       const step = Math.min(speed * dt, dist);
-      avatar.group.position.x += (dx / dist) * step;
-      avatar.group.position.z += (dz / dist) * step;
+      let moveX = (dx / dist) * step;
+      let moveZ = (dz / dist) * step;
+
+      // Separation steering — push away from nearby units
+      if (unitIdx !== undefined) {
+        let sepX = 0;
+        let sepZ = 0;
+        const myX = avatar.group.position.x;
+        const myZ = avatar.group.position.z;
+        for (let i = 0; i < this._scenePositions.length; i++) {
+          if (i === unitIdx) continue;
+          const other = this._scenePositions[i];
+          const ox = myX - other.x;
+          const oz = myZ - other.z;
+          const oDist = Math.sqrt(ox * ox + oz * oz);
+          if (oDist < SEPARATION_RADIUS && oDist > 0.01) {
+            const factor = (1 - oDist / SEPARATION_RADIUS) * SEPARATION_STRENGTH * dt;
+            sepX += (ox / oDist) * factor;
+            sepZ += (oz / oDist) * factor;
+          }
+        }
+        moveX += sepX;
+        moveZ += sepZ;
+      }
+
+      avatar.group.position.x += moveX;
+      avatar.group.position.z += moveZ;
       avatar._faceDirection(dx, dz, dt);
       avatar._updateWalkAnimation(dt);
     }
@@ -610,5 +666,10 @@ export class UnitManager {
       avatars.set(id, unit.avatar);
     }
     return avatars;
+  }
+
+  /** Scene positions collected each frame — used by AnimalManager for separation. */
+  getScenePositions() {
+    return this._scenePositions || [];
   }
 }

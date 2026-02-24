@@ -31,6 +31,7 @@ export class GameGrid {
         fogState: FogState.HIDDEN,
         resourceNodeId: null,
         structureId: null,
+        blocked: false,
       };
     }
   }
@@ -69,6 +70,7 @@ export class GameGrid {
   isWalkable(col, row) {
     const tile = this.getTile(col, row);
     if (!tile) return false;
+    if (tile.blocked) return false;
     return tile.type !== TileType.WATER && tile.type !== TileType.VOID;
   }
 
