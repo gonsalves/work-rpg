@@ -21,13 +21,10 @@ import { computeStructureProgress } from './data/ResourceCalculator.js';
 
 // ─── Spawn Sequencer ─────────────────────────────────────────────────────────
 // Drives the "characters emerging from the base" intro sequence.
-// Each entity: door opens → entity walks out → hops 5 times → door closes → next
+// Each entity: door opens → entity walks out → door closes → next
 
 const EMERGE_DISTANCE = 2.0;    // tiles to walk out from door
 const EMERGE_SPEED = 3.0;       // tiles/sec while walking out
-const HOP_COUNT = 5;
-const HOP_HEIGHTS = [0.35, 0.30, 0.25, 0.20, 0.15]; // decreasing amplitude
-const HOP_DURATION = 0.36;      // seconds per hop (up + down)
 
 class SpawnSequencer {
   /**
@@ -39,10 +36,8 @@ class SpawnSequencer {
     this._offset = worldOffset;
     this._queue = [];       // { group, onSpawned, type }
     this._currentIndex = 0;
-    this._state = 'idle';   // idle | door_opening | emerging | hopping | door_closing
+    this._state = 'idle';   // idle | door_opening | emerging | door_closing
     this._timer = 0;
-    this._hopIndex = 0;
-    this._hopPhase = 0;
     this._emergeStart = null;
     this._emergeEnd = null;
     this._done = false;
@@ -51,7 +46,7 @@ class SpawnSequencer {
   /**
    * Add an entity to the spawn queue.
    * @param {THREE.Group} group — the entity's 3D group
-   * @param {Function} onSpawned — called when entity finishes hopping
+   * @param {Function} onSpawned — called when entity finishes emerging
    * @param {'person'|'animal'} type
    */
   addEntity(group, onSpawned, type = 'person') {
@@ -127,35 +122,11 @@ class SpawnSequencer {
         entry.group.position.y = 0;
 
         if (t >= 1) {
-          this._state = 'hopping';
-          this._hopIndex = 0;
-          this._hopPhase = 0;
-        }
-        break;
-      }
-
-      case 'hopping': {
-        this._hopPhase += dt;
-        const hopHeight = HOP_HEIGHTS[this._hopIndex] || 0.15;
-
-        if (this._hopPhase >= HOP_DURATION) {
-          // Hop complete
-          this._hopPhase -= HOP_DURATION;
-          this._hopIndex++;
-          entry.group.position.y = 0;
-
-          if (this._hopIndex >= HOP_COUNT) {
-            // All hops done — call onSpawned and start closing door
-            entry.group.position.y = 0;
-            if (entry.onSpawned) entry.onSpawned();
-            this._currentIndex++;
-            this._state = 'door_closing';
-            this._timer = 0;
-          }
-        } else {
-          // Smooth arc: y = sin(phase/duration * PI) * height
-          const hopT = this._hopPhase / HOP_DURATION;
-          entry.group.position.y = Math.sin(hopT * Math.PI) * hopHeight;
+          // Done emerging — call onSpawned and start closing door
+          if (entry.onSpawned) entry.onSpawned();
+          this._currentIndex++;
+          this._state = 'door_closing';
+          this._timer = 0;
         }
         break;
       }
