@@ -115,26 +115,15 @@ export class UnitManager {
       return;
     }
 
-    // Find highest-priority incomplete task
-    const incompleteTasks = tasks.filter(t => t.percentComplete < 100);
+    // Find highest-priority incomplete task with an available resource node
+    const incompleteTasks = tasks.filter(t => {
+      if (t.percentComplete >= 100) return false;
+      // Skip tasks whose resource is currently depleted/regrowing
+      return this.map.isNodeAvailable(t.id);
+    });
+
     if (incompleteTasks.length === 0) {
-      // All tasks done — check if any milestone needs building
-      const milestones = this.store.getMilestones();
-      for (const ms of milestones) {
-        const msTasks = this.store.getTasksForMilestone(ms.id);
-        const allDone = msTasks.length > 0 && msTasks.every(t => t.percentComplete >= 100);
-        if (!allDone && this._structurePositions?.has(ms.id)) {
-          const pos = this._structurePositions.get(ms.id);
-          unit.sm.transition(UnitStates.MOVING_TO_STRUCTURE, {
-            assignedMilestoneId: ms.id,
-            targetCol: pos.col,
-            targetRow: pos.row,
-          });
-          this._pathTo(unit, pos.col, pos.row);
-          return;
-        }
-      }
-      // Nothing to build either — go scout
+      // All tasks done or all resources currently depleted — go scout
       this._assignScoutMission(unit);
       return;
     }
@@ -417,6 +406,8 @@ export class UnitManager {
       case UnitStates.MOVING_TO_STRUCTURE:
         sm.transition(UnitStates.BUILDING, {
           assignedMilestoneId: sm.assignedMilestoneId,
+          assignedTaskId: sm.assignedTaskId,
+          carryingResource: sm.carryingResource,
         });
         break;
 
@@ -444,11 +435,31 @@ export class UnitManager {
       };
       unit.avatar.setCarrying(true);
 
-      sm.transition(UnitStates.RETURNING_TO_BASE, {
-        carryingResource: sm.carryingResource,
-        assignedTaskId: sm.assignedTaskId,
-      });
-      this._moveToBase(unit);
+      // Deplete the resource node visually (will regrow later)
+      this.map.depleteNode(sm.assignedTaskId);
+
+      // Redirect to milestone structure if task has one, otherwise base
+      const milestoneId = task ? task.milestoneId : null;
+      const structPos = milestoneId && this._structurePositions
+        ? this._structurePositions.get(milestoneId)
+        : null;
+
+      if (structPos) {
+        sm.transition(UnitStates.MOVING_TO_STRUCTURE, {
+          carryingResource: sm.carryingResource,
+          assignedTaskId: sm.assignedTaskId,
+          assignedMilestoneId: milestoneId,
+          targetCol: structPos.col,
+          targetRow: structPos.row,
+        });
+        this._pathTo(unit, structPos.col, structPos.row);
+      } else {
+        sm.transition(UnitStates.RETURNING_TO_BASE, {
+          carryingResource: sm.carryingResource,
+          assignedTaskId: sm.assignedTaskId,
+        });
+        this._moveToBase(unit);
+      }
     }
   }
 
@@ -482,6 +493,26 @@ export class UnitManager {
     unit.avatar.playBuildAnimation(dt);
 
     if (sm.buildProgress >= 1) {
+      // Advance task progress (deposit resource into structure)
+      if (sm.assignedTaskId) {
+        const task = this.store.getTask(sm.assignedTaskId);
+        if (task && task.percentComplete < 100) {
+          const advance = Math.min(100 - task.percentComplete, 15 + Math.random() * 10);
+          this.store.updateTask(sm.assignedTaskId, {
+            percentComplete: Math.min(100, task.percentComplete + advance),
+          });
+        }
+
+        // If task reached 100%, permanently deplete its resource node
+        const updatedTask = this.store.getTask(sm.assignedTaskId);
+        if (updatedTask && updatedTask.percentComplete >= 100) {
+          this.map.depleteNode(sm.assignedTaskId, true);
+        }
+      }
+
+      unit.avatar.setCarrying(false);
+      sm.carryingResource = null;
+
       sm.transition(UnitStates.IDLE);
       const person = this.store.getPerson(sm.personId);
       if (person) this._assignBehavior(unit, person);

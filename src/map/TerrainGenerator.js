@@ -80,8 +80,10 @@ export class TerrainGenerator {
           type = TileType.GRASS;
         }
 
-        // Circular map boundary: water beyond radius 22
-        if (dist > 22) {
+        // Circular map boundary: water beyond scaled radius
+        // (22 for 48, ~36 for 80 — proportional border)
+        const waterBoundary = Math.floor(Math.min(grid.width, grid.height) * 0.46);
+        if (dist > waterBoundary) {
           type = TileType.WATER;
         }
 
@@ -146,22 +148,45 @@ export class TerrainGenerator {
   }
 
   /**
-   * Place structures (milestones) in a semicircle around the base.
+   * Place structures (milestones) scattered across the map.
+   * Positions are deterministic based on milestone ID hash.
    */
   placeStructures(grid, milestones) {
     const cx = grid.width / 2;
     const cz = grid.height / 2;
-    const structureRadius = 5;
     const positions = [];
 
-    for (let i = 0; i < milestones.length; i++) {
-      const angle = (Math.PI * 0.3) + (i / Math.max(1, milestones.length - 1)) * (Math.PI * 1.4);
-      const col = Math.round(cx + Math.cos(angle) * structureRadius);
-      const row = Math.round(cz + Math.sin(angle) * structureRadius);
+    for (const milestone of milestones) {
+      // Hash milestone ID for deterministic placement
+      let hash = 0;
+      for (let i = 0; i < milestone.id.length; i++) {
+        hash = ((hash << 5) - hash + milestone.id.charCodeAt(i)) | 0;
+      }
+      const rand = seededRandom(Math.abs(hash) + 9999); // offset to avoid overlap with resource seeds
 
-      grid.setTile(col, row, { structureId: milestones[i].id, type: TileType.DIRT });
+      // Place at radii 10–18 from center (well outside base, within walkable area)
+      const minRadius = 10;
+      const maxRadius = 18;
+      const radius = minRadius + rand() * (maxRadius - minRadius);
+      const angle = rand() * Math.PI * 2;
 
-      positions.push({ col, row, milestoneId: milestones[i].id });
+      let col = Math.round(cx + Math.cos(angle) * radius);
+      let row = Math.round(cz + Math.sin(angle) * radius);
+
+      // Clamp to grid and ensure walkable
+      col = Math.max(2, Math.min(grid.width - 3, col));
+      row = Math.max(2, Math.min(grid.height - 3, row));
+
+      if (!grid.isWalkable(col, row)) {
+        const found = this._findNearestWalkable(grid, col, row);
+        if (found) {
+          col = found.col;
+          row = found.row;
+        }
+      }
+
+      grid.setTile(col, row, { structureId: milestone.id, type: TileType.DIRT });
+      positions.push({ col, row, milestoneId: milestone.id });
     }
 
     return positions;

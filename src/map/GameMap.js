@@ -10,6 +10,11 @@ const TILE_COLORS = {
   [TileType.FOREST]: THEME.terrain.tiles.forest,
 };
 
+// Resource node animation timing
+const DEPLETE_DURATION = 0.5;   // seconds to shrink away
+const REGROW_DELAY = 60;        // seconds before regrowing starts (very slow)
+const REGROW_DURATION = 15;     // seconds to scale back up
+
 export class GameMap {
   constructor(gameGrid, textures = null) {
     this.grid = gameGrid;
@@ -17,6 +22,7 @@ export class GameMap {
     this._tileMeshes = new Map();
     this._resourceNodeGroups = new Map();
     this._structureGroups = new Map();
+    this._nodeAnimState = new Map(); // taskId → { phase, timer, permanent }
     this._textures = textures;
     this._waterMaterial = null;
     this._time = 0;
@@ -146,6 +152,7 @@ export class GameMap {
   }
 
   setResourceNodeDepleted(taskId) {
+    // Used at load time for tasks already at 100% — immediate permanent depletion
     const group = this._resourceNodeGroups.get(taskId);
     if (!group) return;
     group.traverse(child => {
@@ -153,6 +160,52 @@ export class GameMap {
         child.material.color.set(THEME.resourceNodes.depleted.color);
         child.material.opacity = THEME.resourceNodes.depleted.opacity;
         child.material.transparent = true;
+      }
+    });
+    group.scale.set(0, 0, 0);
+    this._nodeAnimState.set(taskId, { phase: 'depleted', timer: 0, permanent: true });
+  }
+
+  /**
+   * Trigger resource node depletion animation (shrink away on pickup).
+   * @param {string} taskId
+   * @param {boolean} permanent - if true, node never regrows (task 100%)
+   */
+  depleteNode(taskId, permanent = false) {
+    const state = this._nodeAnimState.get(taskId);
+    // Don't re-deplete if already depleting/depleted
+    if (state && state.phase !== 'available') return;
+    this._nodeAnimState.set(taskId, { phase: 'depleting', timer: 0, permanent });
+  }
+
+  /**
+   * Returns true if the resource node is available for gathering.
+   */
+  isNodeAvailable(taskId) {
+    const state = this._nodeAnimState.get(taskId);
+    if (!state) return true; // no state = never depleted = available
+    return state.phase === 'available';
+  }
+
+  /**
+   * Restore node appearance after regrowth (reset materials to original colors).
+   */
+  _restoreNodeAppearance(taskId) {
+    const group = this._resourceNodeGroups.get(taskId);
+    if (!group) return;
+    group.traverse(child => {
+      if (child.isMesh && child.material) {
+        if (child.userData.isResourceNode) {
+          // Marker — restore original color
+          child.material.color.set(THEME.resourceNodes.marker.color);
+          child.material.opacity = 1;
+          child.material.transparent = false;
+        } else {
+          // Pedestal
+          child.material.color.set(THEME.resourceNodes.pedestal.color);
+          child.material.opacity = 1;
+          child.material.transparent = false;
+        }
       }
     });
   }
@@ -243,13 +296,61 @@ export class GameMap {
     this._time += dt;
 
     // Slow rotation on resource node markers for visibility
-    for (const group of this._resourceNodeGroups.values()) {
+    for (const [taskId, group] of this._resourceNodeGroups) {
       if (!group.visible) continue;
       group.traverse(child => {
         if (child.isMesh && child.userData.isResourceNode) {
           child.rotation.y += dt * 0.5;
         }
       });
+    }
+
+    // Resource node depletion / regrowth animations
+    for (const [taskId, state] of this._nodeAnimState) {
+      const group = this._resourceNodeGroups.get(taskId);
+      if (!group) continue;
+
+      switch (state.phase) {
+        case 'depleting': {
+          state.timer += dt;
+          const t = Math.min(1, state.timer / DEPLETE_DURATION);
+          const s = 1 - t;
+          group.scale.set(s, s, s);
+          // Slight upward float during shrink
+          group.position.y = t * 0.3;
+          if (t >= 1) {
+            state.phase = 'depleted';
+            state.timer = 0;
+            group.scale.set(0, 0, 0);
+          }
+          break;
+        }
+        case 'depleted': {
+          if (state.permanent) break; // never regrow
+          state.timer += dt;
+          if (state.timer >= REGROW_DELAY) {
+            state.phase = 'regrowing';
+            state.timer = 0;
+            group.scale.set(0.01, 0.01, 0.01);
+            group.position.y = 0;
+            this._restoreNodeAppearance(taskId);
+          }
+          break;
+        }
+        case 'regrowing': {
+          state.timer += dt;
+          const t = Math.min(1, state.timer / REGROW_DURATION);
+          // Ease-out for gentle growth
+          const s = 1 - Math.pow(1 - t, 2);
+          group.scale.set(s, s, s);
+          if (t >= 1) {
+            state.phase = 'available';
+            state.timer = 0;
+            group.scale.set(1, 1, 1);
+          }
+          break;
+        }
+      }
     }
 
     // Gently scroll water texture
