@@ -1,6 +1,7 @@
 export class Toolbar {
   constructor(container) {
     this._editorCallbacks = [];
+    this._settingsCallbacks = [];
     this._dayNightCallbacks = [];
     this._isNight = false;
 
@@ -13,6 +14,7 @@ export class Toolbar {
         <span class="daynight-label">Day</span>
       </button>
       <div class="toolbar-spacer"></div>
+      <button class="toolbar-btn toolbar-btn-settings" data-action="settings">⚙</button>
       <button class="toolbar-btn" data-action="editor">Team Editor</button>
     `;
     container.appendChild(this.el);
@@ -25,6 +27,13 @@ export class Toolbar {
       this._isNight = !this._isNight;
       this._updateDayNightDisplay();
       for (const cb of this._dayNightCallbacks) cb(this._isNight);
+    });
+
+    // Settings toggle
+    this._settingsBtn = this.el.querySelector('[data-action="settings"]');
+    this._settingsBtn.addEventListener('click', () => {
+      this._settingsBtn.classList.toggle('active');
+      for (const cb of this._settingsCallbacks) cb();
     });
 
     // Editor toggle
@@ -58,5 +67,9 @@ export class Toolbar {
 
   onToggleEditor(cb) {
     this._editorCallbacks.push(cb);
+  }
+
+  onToggleSettings(cb) {
+    this._settingsCallbacks.push(cb);
   }
 }

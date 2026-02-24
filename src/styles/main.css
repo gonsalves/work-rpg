@@ -586,6 +586,120 @@ body {
   opacity: 1;
 }
 
+/* Settings Panel */
+.settings-panel {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%) scale(0.95);
+  width: 400px;
+  background: rgba(20, 20, 20, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  overflow-y: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 25;
+}
+
+.settings-panel.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) scale(1);
+}
+
+.settings-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #F0EBE3;
+}
+
+.settings-content {
+  padding: 16px 20px;
+}
+
+.settings-radio-group {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.settings-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #E8E4DC;
+}
+
+.settings-radio input[type="radio"] {
+  accent-color: #A0AAB8;
+  width: auto;
+  margin: 0;
+}
+
+.settings-hint {
+  font-size: 11px;
+  color: #666;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.settings-hint strong {
+  color: #A0AAB8;
+}
+
+.settings-template-link {
+  display: inline-block;
+  font-size: 13px;
+  color: #A0AAB8;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.settings-template-link:hover {
+  color: #E8E4DC;
+}
+
+.settings-status {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.settings-status.loading {
+  background: rgba(160, 170, 184, 0.12);
+  color: #A0AAB8;
+}
+
+.settings-status.success {
+  background: rgba(138, 154, 124, 0.15);
+  color: #8A9A7C;
+}
+
+.settings-status.error {
+  background: rgba(192, 100, 80, 0.15);
+  color: #C0A090;
+}
+
+.toolbar-btn-settings {
+  font-size: 16px;
+  padding: 6px 10px;
+  line-height: 1;
+}
+
 /* Context menu prevention */
 #scene {
   -webkit-user-select: none;

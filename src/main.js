@@ -14,6 +14,7 @@ import { Raycaster } from './interaction/Raycaster.js';
 import { Tooltip } from './interaction/Tooltip.js';
 import { Toolbar } from './ui/Toolbar.js';
 import { EditorPanel } from './ui/EditorPanel.js';
+import { SettingsPanel } from './ui/SettingsPanel.js';
 import { DetailPanel } from './ui/DetailPanel.js';
 import { CONFIG } from './utils/Config.js';
 import { resourceColorForCategory } from './utils/Colors.js';
@@ -158,8 +159,12 @@ async function boot() {
   const camera = sceneManager.getCamera();
   const renderer = sceneManager.getRenderer();
 
-  // --- Data ---
-  const adapter = CONFIG.DATA_SOURCE === 'google-sheets'
+  // --- Data (load saved settings before creating adapter) ---
+  const savedSettings = SettingsPanel.loadSettings();
+  if (savedSettings.dataSource) CONFIG.DATA_SOURCE = savedSettings.dataSource;
+  if (savedSettings.sheetId) CONFIG.GOOGLE_SHEET_ID = savedSettings.sheetId;
+
+  let adapter = CONFIG.DATA_SOURCE === 'google-sheets'
     ? new GoogleSheetsAdapter()
     : new SeedAdapter();
   const store = new Store(adapter);
@@ -310,6 +315,22 @@ async function boot() {
       fog.setFogColor(fogR, fogG, fogB);
     });
 
+    const settingsPanel = new SettingsPanel(uiRoot, {
+      onSave: async (settings) => {
+        const newAdapter = settings.dataSource === 'google-sheets'
+          ? new GoogleSheetsAdapter()
+          : new SeedAdapter();
+        store.setAdapter(newAdapter);
+        try {
+          await store.syncFromAdapter();
+          settingsPanel.showSyncResult(true);
+        } catch {
+          settingsPanel.showSyncResult(false);
+        }
+      },
+    });
+
+    toolbar.onToggleSettings(() => settingsPanel.toggle());
     toolbar.onToggleEditor(() => editorPanel.toggle());
 
     raycaster.onAvatarClick((personId) => detailPanel.open(personId));

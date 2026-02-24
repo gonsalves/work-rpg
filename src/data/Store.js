@@ -59,6 +59,10 @@ export class Store {
 
   // --- Adapter sync ---
 
+  setAdapter(adapter) {
+    this._adapter = adapter;
+  }
+
   async syncFromAdapter() {
     const [people, tasks, milestones, resourceTypes] = await Promise.all([
       this._adapter.fetchPeople(),
