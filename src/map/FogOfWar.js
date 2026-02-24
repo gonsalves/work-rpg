@@ -121,8 +121,8 @@ export class FogOfWar {
 
         const idx = tr * this._texWidth + tc;
         this._targetAlpha[idx] = 0.0;
-        // Also permanently lower the reveal floor (smoky variation)
-        this._revealFloor[idx] = Math.min(this._revealFloor[idx], this._smokyAlpha(tc, tr));
+        // Permanently clear fog once a unit has walked through
+        this._revealFloor[idx] = 0.0;
       }
 
       // Outer ring: reveal but semi-transparent
