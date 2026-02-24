@@ -31,6 +31,9 @@ export class Avatar {
     this._shadowDisc = createShadowDisc(0.4);
     this.group.add(this._shadowDisc);
 
+    // Lantern (visible at night)
+    this._buildLantern();
+
     this.group.userData.personId = personData.id;
     this.group.userData.isAvatar = true;
   }
@@ -102,6 +105,42 @@ export class Avatar {
     this._carryMesh.position.set(0, 1.2, 0.3);
     this._carryMesh.visible = false;
     this.group.add(this._carryMesh);
+  }
+
+  _buildLantern() {
+    const L = THEME.lantern;
+
+    this._lanternLight = new THREE.PointLight(
+      L.avatar.color, 0, L.avatar.range, L.avatar.decay
+    );
+    this._lanternLight.position.set(0.3, 1.0, 0.3);
+    this._lanternLight.castShadow = false;
+    this.group.add(this._lanternLight);
+
+    const geo = new THREE.BoxGeometry(0.08, 0.12, 0.08);
+    const mat = new THREE.MeshStandardMaterial({
+      color: L.mesh.color,
+      emissive: L.mesh.emissive,
+      emissiveIntensity: 0,
+    });
+    this._lanternMesh = new THREE.Mesh(geo, mat);
+    this._lanternMesh.position.set(0.3, 0.9, 0.3);
+    this._lanternMesh.visible = false;
+    this.group.add(this._lanternMesh);
+  }
+
+  /**
+   * Update lantern for day/night cycle.
+   * @param {number} t — 0 = day, 1 = night
+   */
+  setTimeOfDay(t) {
+    const fadeStart = THEME.lantern.fadeStart;
+    const raw = Math.max(0, Math.min(1, (t - fadeStart) / (1 - fadeStart)));
+    const fade = raw * raw * (3 - 2 * raw); // smoothstep
+
+    this._lanternLight.intensity = THEME.lantern.avatar.intensity * fade;
+    this._lanternMesh.material.emissiveIntensity = fade * 0.8;
+    this._lanternMesh.visible = t > fadeStart * 0.8;
   }
 
   setHomePosition(x, z) {

@@ -203,6 +203,7 @@ export class Base {
     });
     const pole = new THREE.Mesh(poleGeo, poleMat);
     pole.position.set(cx, keepHeight + 0.12 + 1.0 + 0.9, cz);
+    pole.castShadow = true;
     this.group.add(pole);
 
     const flagGeo = new THREE.PlaneGeometry(0.55, 0.35);
@@ -213,10 +214,15 @@ export class Base {
     });
     const flag = new THREE.Mesh(flagGeo, flagMat);
     flag.position.set(cx + 0.28, keepHeight + 0.12 + 1.0 + 1.6, cz);
+    flag.castShadow = true;
     this.group.add(flag);
 
     // ─── Gates (4 doors: N, E, S, W) ────────────────────────────
     this._buildGates(wallOffset);
+
+    // ─── Lanterns ──────────────────────────────────────────────
+    this._lanterns = [];
+    this._buildLanterns(wallOffset);
   }
 
   _buildGates(wallOffset) {
@@ -264,6 +270,71 @@ export class Base {
       pivot.add(doorMesh);
       this.group.add(pivot);
       this._gates[i].pivot = pivot;
+    }
+  }
+
+  _buildLanterns(wallOffset) {
+    const B = THEME.base;
+    const L = THEME.lantern;
+    const cx = this.worldX;
+    const cz = this.worldZ;
+
+    const lanternMeshGeo = new THREE.BoxGeometry(0.15, 0.2, 0.15);
+    const lanternMeshMat = new THREE.MeshStandardMaterial({
+      color: L.mesh.color,
+      emissive: L.mesh.emissive,
+      emissiveIntensity: 0,
+    });
+
+    // Gate lanterns (4)
+    for (let i = 0; i < NUM_GATES; i++) {
+      const dir = GATE_DIRS[i];
+      const gx = cx + dir.dx * wallOffset;
+      const gz = cz + dir.dz * wallOffset;
+
+      const light = new THREE.PointLight(
+        L.gate.color, 0, L.gate.range, L.gate.decay
+      );
+      light.position.set(gx, 2.2, gz);
+      light.castShadow = false;
+      this.group.add(light);
+
+      const mesh = new THREE.Mesh(lanternMeshGeo, lanternMeshMat.clone());
+      mesh.position.set(gx, 2.0, gz);
+      this.group.add(mesh);
+
+      this._lanterns.push({ light, mesh, maxIntensity: L.gate.intensity });
+    }
+
+    // Keep lantern (1)
+    const keepLight = new THREE.PointLight(
+      L.keep.color, 0, L.keep.range, L.keep.decay
+    );
+    keepLight.position.set(cx, 4.0, cz);
+    keepLight.castShadow = false;
+    this.group.add(keepLight);
+
+    const keepMesh = new THREE.Mesh(lanternMeshGeo, lanternMeshMat.clone());
+    keepMesh.position.set(cx, 3.8, cz);
+    this.group.add(keepMesh);
+
+    this._lanterns.push({ light: keepLight, mesh: keepMesh, maxIntensity: L.keep.intensity });
+  }
+
+  /**
+   * Update lantern brightness for day/night cycle.
+   * @param {number} t — 0 = day, 1 = night
+   */
+  setTimeOfDay(t) {
+    const fadeStart = THEME.lantern.fadeStart;
+    // Smoothstep from fadeStart to 1.0
+    const raw = Math.max(0, Math.min(1, (t - fadeStart) / (1 - fadeStart)));
+    const fade = raw * raw * (3 - 2 * raw); // smoothstep
+
+    for (const lantern of this._lanterns) {
+      lantern.light.intensity = lantern.maxIntensity * fade;
+      lantern.mesh.material.emissiveIntensity = fade * 0.8;
+      lantern.mesh.visible = t > fadeStart * 0.8;
     }
   }
 

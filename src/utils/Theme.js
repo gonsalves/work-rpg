@@ -163,7 +163,7 @@ export const THEME = {
     gate:     { color: 0x8B6B4A, roughness: 0.75, metalness: 0 },
     keep:     { color: 0xF0E0C8, roughness: 0.8, metalness: 0 },
     pole:     { color: 0x8B6B4A, roughness: 0.7 },
-    flag:     { color: 0xF0E6D0, roughness: 0.7 },
+    flag:     { color: 0x5F259F, roughness: 0.7 },
   },
 
   // ─── Avatar ─────────────────────────────────────────────────────
@@ -227,6 +227,16 @@ export const THEME = {
     revealFloor: 0.55,
     fadeInSpeed: 2.0,
     fadeOutSpeed: 0.8,
+  },
+
+  // ─── Lanterns (night-time warm lighting) ─────────────────────────
+  lantern: {
+    gate:      { color: 0xFFAA44, intensity: 1.5, range: 8, decay: 2 },
+    keep:      { color: 0xFFCC66, intensity: 2.0, range: 12, decay: 2 },
+    structure: { color: 0xFFAA44, intensity: 1.0, range: 6, decay: 2 },
+    avatar:    { color: 0xFFAA44, intensity: 1.2, range: 5, decay: 2 },
+    mesh:      { color: 0x8B6B4A, emissive: 0xFFAA44 },
+    fadeStart: 0.4,
   },
 
   // ─── UI Palette (backward compat for EditorPanel, etc.) ─────────

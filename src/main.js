@@ -310,6 +310,37 @@ async function boot() {
     }, 'animal');
   }
 
+  // --- Day/Night continuous 24-hour cycle ---
+  // 5 real seconds = 1 sim hour, full cycle = 24 hours = 120 seconds = 2 minutes
+  let simHour = 6;                       // start at 6:00 AM
+  const HOUR_RATE = 1 / 5;              // 1 sim hour per 5 real seconds
+
+  /**
+   * Convert 24-hour sim clock to lighting t (0 = full day, 1 = full night).
+   * Uses a cosine curve: noon (12) → t=0, midnight (0/24) → t=1.
+   */
+  function hourToLightingT(hour) {
+    // cos curve: hour 12 → cos(0) = 1 → t=0; hour 0/24 → cos(π) = -1 → t=1
+    return (1 - Math.cos(((hour - 12) / 12) * Math.PI)) / 2;
+  }
+
+  function applyTimeOfDay(t, hour) {
+    sceneManager.setTimeOfDay(t);
+    unitManager.setTimeOfDay(t);
+    base.setTimeOfDay(t);
+    gameMap.setTimeOfDay(t);
+
+    // Fog color interpolation
+    const dFog = THEME.fog.color;
+    const nFog = THEME_NIGHT.fog.color;
+    const fogR = Math.round(dFog.r + (nFog.r - dFog.r) * t);
+    const fogG = Math.round(dFog.g + (nFog.g - dFog.g) * t);
+    const fogB = Math.round(dFog.b + (nFog.b - dFog.b) * t);
+    fog.setFogColor(fogR, fogG, fogB);
+
+    if (toolbar) toolbar.setTimeDisplay(hour);
+  }
+
   // --- Render loop (start early so scene is always live) ---
   let lastTime = performance.now();
 
@@ -319,6 +350,10 @@ async function boot() {
     lastTime = now;
 
     cameraControls.update(dt);
+
+    // Continuous 24-hour cycle (wraps at 24 → 0)
+    simHour = (simHour + HOUR_RATE * dt) % 24;
+    applyTimeOfDay(hourToLightingT(simHour), simHour);
 
     // Drive the spawn intro sequence
     if (!spawnSequencer.isDone()) {
@@ -349,19 +384,9 @@ async function boot() {
     toolbar = new Toolbar(uiRoot);
     editorPanel = new EditorPanel(uiRoot, store);
 
-    // Wire events
-    toolbar.onToggleDayNight((isNight) => {
-      const t = isNight ? 1 : 0;
-      sceneManager.setTimeOfDay(t);
-      unitManager.setTimeOfDay(t);
-
-      // Lerp fog color
-      const dFog = THEME.fog.color;
-      const nFog = THEME_NIGHT.fog.color;
-      const fogR = Math.round(dFog.r + (nFog.r - dFog.r) * t);
-      const fogG = Math.round(dFog.g + (nFog.g - dFog.g) * t);
-      const fogB = Math.round(dFog.b + (nFog.b - dFog.b) * t);
-      fog.setFogColor(fogR, fogG, fogB);
+    // Wire events — jump 12 hours forward
+    toolbar.onToggleDayNight(() => {
+      simHour = (simHour + 12) % 24;
     });
 
     const settingsPanel = new SettingsPanel(uiRoot, {

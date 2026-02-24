@@ -22,6 +22,8 @@ export class GameMap {
     this._tileMeshes = new Map();
     this._resourceNodeGroups = new Map();
     this._structureGroups = new Map();
+    this._structureLanterns = new Map(); // milestoneId → { light, mesh }
+    this._structureProgress = new Map(); // milestoneId → progress (0-1)
     this._nodeAnimState = new Map(); // taskId → { phase, timer, permanent }
     this._textures = textures;
     this._waterMaterial = null;
@@ -310,6 +312,32 @@ export class GameMap {
     door.castShadow = true;
     structGroup.add(door);
 
+    // Lantern (PointLight + small emissive mesh, hidden until night)
+    const L = THEME.lantern;
+    const lanternLight = new THREE.PointLight(
+      L.structure.color, 0, L.structure.range, L.structure.decay
+    );
+    lanternLight.position.set(world.x, 1.8, world.z);
+    lanternLight.castShadow = false;
+    structGroup.add(lanternLight);
+
+    const lanternGeo = new THREE.BoxGeometry(0.1, 0.15, 0.1);
+    const lanternMat = new THREE.MeshStandardMaterial({
+      color: L.mesh.color,
+      emissive: L.mesh.emissive,
+      emissiveIntensity: 0,
+    });
+    const lanternMesh = new THREE.Mesh(lanternGeo, lanternMat);
+    lanternMesh.position.set(world.x, 1.6, world.z);
+    lanternMesh.visible = false;
+    structGroup.add(lanternMesh);
+
+    this._structureLanterns.set(milestoneId, {
+      light: lanternLight,
+      mesh: lanternMesh,
+      maxIntensity: L.structure.intensity,
+    });
+
     // Store refs for animation
     structGroup.userData = {
       _wireGroup: wireGroup,
@@ -327,6 +355,7 @@ export class GameMap {
   }
 
   setStructureProgress(milestoneId, progress) {
+    this._structureProgress.set(milestoneId, progress);
     const group = this._structureGroups.get(milestoneId);
     if (!group) return;
     const d = group.userData;
@@ -424,6 +453,26 @@ export class GameMap {
       });
     }
     return pickables;
+  }
+
+  /**
+   * Update structure lanterns for day/night cycle.
+   * @param {number} t — 0 = day, 1 = night
+   */
+  setTimeOfDay(t) {
+    const fadeStart = THEME.lantern.fadeStart;
+    const raw = Math.max(0, Math.min(1, (t - fadeStart) / (1 - fadeStart)));
+    const fade = raw * raw * (3 - 2 * raw); // smoothstep
+
+    for (const [milestoneId, lantern] of this._structureLanterns) {
+      // Only illuminate structures with roof built (progress >= 50%)
+      const progress = this._structureProgress.get(milestoneId) || 0;
+      const active = progress >= 0.5 ? fade : 0;
+
+      lantern.light.intensity = lantern.maxIntensity * active;
+      lantern.mesh.material.emissiveIntensity = active * 0.8;
+      lantern.mesh.visible = active > 0;
+    }
   }
 
   update(dt) {

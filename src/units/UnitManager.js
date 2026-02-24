@@ -660,13 +660,14 @@ export class UnitManager {
     return list;
   }
 
-  /** Update shadow disc opacity on all avatars for day/night. */
+  /** Update shadow disc opacity and lanterns on all avatars for day/night. */
   setTimeOfDay(t) {
     const dayOpacity = THEME.shadowDisc.opacity;
     const nightOpacity = THEME_NIGHT.shadowDisc.opacity;
     const opacity = lerp(dayOpacity, nightOpacity, t);
     for (const unit of this.units.values()) {
       unit.avatar.setShadowOpacity(opacity);
+      unit.avatar.setTimeOfDay(t);
     }
   }
 
