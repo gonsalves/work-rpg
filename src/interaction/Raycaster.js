@@ -1,16 +1,20 @@
 import * as THREE from 'three';
 
 export class Raycaster {
-  constructor(camera, renderer, avatarManager) {
+  constructor(camera, renderer, unitManager, gameMap) {
     this.camera = camera;
     this.renderer = renderer;
-    this.avatarManager = avatarManager;
+    this.unitManager = unitManager;
+    this.gameMap = gameMap;
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
 
-    this._clickCallbacks = [];
-    this._hoverCallbacks = [];
+    this._avatarClickCallbacks = [];
+    this._avatarHoverCallbacks = [];
+    this._resourceClickCallbacks = [];
+    this._structureClickCallbacks = [];
     this._hoveredId = null;
+    this._hoveredType = null; // 'avatar' | 'resource' | 'structure'
 
     const canvas = renderer.domElement;
     canvas.addEventListener('click', (e) => this._onClick(e));
@@ -23,23 +27,43 @@ export class Raycaster {
     this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
   }
 
+  _getAllPickables() {
+    const avatarPicks = this.unitManager.getPickableObjects();
+    const resourcePicks = this.gameMap ? this.gameMap.getResourceNodePickables() : [];
+    const structurePicks = this.gameMap ? this.gameMap.getStructurePickables() : [];
+    return [...avatarPicks, ...resourcePicks, ...structurePicks];
+  }
+
   _raycast() {
     this.raycaster.setFromCamera(this.mouse, this.camera);
-    const pickables = this.avatarManager.getPickableObjects();
+    const pickables = this._getAllPickables();
     return this.raycaster.intersectObjects(pickables, false);
   }
 
+  _classifyHit(hit) {
+    const obj = hit.object;
+    if (obj.userData.personId) return { type: 'avatar', id: obj.userData.personId };
+    if (obj.userData.taskId && obj.userData.isResourceNode) return { type: 'resource', id: obj.userData.taskId };
+    if (obj.userData.milestoneId && obj.userData.isStructure) return { type: 'structure', id: obj.userData.milestoneId };
+    return null;
+  }
+
   _onClick(e) {
-    // Ignore if clicking on UI overlay
     if (e.target !== this.renderer.domElement) return;
 
     this._getNDC(e);
     const hits = this._raycast();
 
     if (hits.length > 0) {
-      const personId = hits[0].object.userData.personId;
-      if (personId) {
-        for (const cb of this._clickCallbacks) cb(personId);
+      const info = this._classifyHit(hits[0]);
+      if (!info) return;
+
+      if (info.type === 'avatar') {
+        for (const cb of this._avatarClickCallbacks) cb(info.id);
+      } else if (info.type === 'resource') {
+        for (const cb of this._resourceClickCallbacks) cb(info.id);
+      } else if (info.type === 'structure') {
+        for (const cb of this._structureClickCallbacks) cb(info.id);
       }
     }
   }
@@ -51,40 +75,51 @@ export class Raycaster {
     const hits = this._raycast();
 
     if (hits.length > 0) {
-      const personId = hits[0].object.userData.personId;
-      if (personId !== this._hoveredId) {
-        // Unhighlight previous
-        if (this._hoveredId) {
-          const prev = this.avatarManager.getAvatars().get(this._hoveredId);
-          if (prev) prev.unhighlight();
-        }
-        // Highlight new
-        this._hoveredId = personId;
-        const avatar = this.avatarManager.getAvatars().get(personId);
-        if (avatar) avatar.highlight();
+      const info = this._classifyHit(hits[0]);
+      if (!info) {
+        this._clearHover();
+        return;
+      }
 
-        this.renderer.domElement.style.cursor = 'pointer';
+      if (info.type === 'avatar' && info.id !== this._hoveredId) {
+        this._clearHover();
+        this._hoveredId = info.id;
+        this._hoveredType = 'avatar';
 
-        // Project avatar position to screen
+        const avatar = this.unitManager.getAvatars().get(info.id);
         if (avatar) {
+          avatar.highlight();
+          this.renderer.domElement.style.cursor = 'pointer';
           const screenPos = this._worldToScreen(avatar.group.position);
-          for (const cb of this._hoverCallbacks) cb(personId, screenPos);
+          for (const cb of this._avatarHoverCallbacks) cb(info.id, screenPos);
         }
+      } else if (info.type !== 'avatar' && (info.id !== this._hoveredId || info.type !== this._hoveredType)) {
+        this._clearHover();
+        this._hoveredId = info.id;
+        this._hoveredType = info.type;
+        this.renderer.domElement.style.cursor = 'pointer';
       }
     } else {
-      if (this._hoveredId) {
-        const prev = this.avatarManager.getAvatars().get(this._hoveredId);
-        if (prev) prev.unhighlight();
-        this._hoveredId = null;
-        this.renderer.domElement.style.cursor = 'default';
-        for (const cb of this._hoverCallbacks) cb(null, { x: 0, y: 0 });
-      }
+      this._clearHover();
+    }
+  }
+
+  _clearHover() {
+    if (this._hoveredId && this._hoveredType === 'avatar') {
+      const prev = this.unitManager.getAvatars().get(this._hoveredId);
+      if (prev) prev.unhighlight();
+      for (const cb of this._avatarHoverCallbacks) cb(null, { x: 0, y: 0 });
+    }
+    if (this._hoveredId) {
+      this._hoveredId = null;
+      this._hoveredType = null;
+      this.renderer.domElement.style.cursor = 'default';
     }
   }
 
   _worldToScreen(position) {
     const vec = position.clone();
-    vec.y += 2; // offset above avatar
+    vec.y += 2;
     vec.project(this.camera);
     return {
       x: (vec.x * 0.5 + 0.5) * window.innerWidth,
@@ -92,6 +127,8 @@ export class Raycaster {
     };
   }
 
-  onAvatarClick(cb) { this._clickCallbacks.push(cb); }
-  onAvatarHover(cb) { this._hoverCallbacks.push(cb); }
+  onAvatarClick(cb) { this._avatarClickCallbacks.push(cb); }
+  onAvatarHover(cb) { this._avatarHoverCallbacks.push(cb); }
+  onResourceClick(cb) { this._resourceClickCallbacks.push(cb); }
+  onStructureClick(cb) { this._structureClickCallbacks.push(cb); }
 }

@@ -1,5 +1,5 @@
 export class TaskForm {
-  constructor(task = null, onSave, onCancel) {
+  constructor(task = null, milestones = [], resourceTypes = [], onSave, onCancel) {
     this.el = document.createElement('div');
     this.el.style.padding = '12px';
     this.el.style.background = 'rgba(0,0,0,0.02)';
@@ -12,6 +12,16 @@ export class TaskForm {
     const disc = task?.discoveryPercent ?? 50;
     const expectedDate = task?.expectedDate || new Date().toISOString().split('T')[0];
     const pctComplete = task?.percentComplete ?? 0;
+    const category = task?.category || '';
+    const milestoneId = task?.milestoneId || '';
+
+    const categoryOptions = resourceTypes.map(rt =>
+      `<option value="${this._esc(rt)}" ${rt === category ? 'selected' : ''}>${this._esc(rt)}</option>`
+    ).join('');
+
+    const milestoneOptions = milestones.map(ms =>
+      `<option value="${ms.id}" ${ms.id === milestoneId ? 'selected' : ''}>${this._esc(ms.name)}</option>`
+    ).join('');
 
     this.el.innerHTML = `
       <div class="form-group">
@@ -24,11 +34,27 @@ export class TaskForm {
       </div>
       <div class="form-row">
         <div class="form-group">
+          <label>Category (Resource Type)</label>
+          <select name="category">
+            <option value="">None</option>
+            ${categoryOptions}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Milestone</label>
+          <select name="milestoneId">
+            <option value="">None</option>
+            ${milestoneOptions}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
           <label>Discovery / Execution Balance</label>
           <input type="range" name="discoveryPercent" min="0" max="100" value="${disc}" />
           <div style="display:flex;justify-content:space-between;font-size:11px;color:#999;">
-            <span class="disc-label" style="color:#0078D7;">Discovery ${disc}%</span>
-            <span class="exec-label" style="color:#FF6F00;">Execution ${100 - disc}%</span>
+            <span class="disc-label" style="color:#0078D7;">Scout ${disc}%</span>
+            <span class="exec-label" style="color:#FF6F00;">Gather ${100 - disc}%</span>
           </div>
         </div>
       </div>
@@ -54,13 +80,12 @@ export class TaskForm {
     const execLabel = this.el.querySelector('.exec-label');
     slider.addEventListener('input', () => {
       const v = parseInt(slider.value);
-      discLabel.textContent = `Discovery ${v}%`;
-      execLabel.textContent = `Execution ${100 - v}%`;
+      discLabel.textContent = `Scout ${v}%`;
+      execLabel.textContent = `Gather ${100 - v}%`;
     });
 
     // Link progress label
     const pctSlider = this.el.querySelector('[name="percentComplete"]');
-    const pctLabel = this.el.querySelector('label:last-of-type');
     pctSlider.addEventListener('input', () => {
       pctSlider.parentElement.querySelector('label').textContent = `% Complete (${pctSlider.value}%)`;
     });
@@ -70,10 +95,12 @@ export class TaskForm {
       const data = {
         name: this.el.querySelector('[name="name"]').value.trim(),
         description: this.el.querySelector('[name="description"]').value.trim(),
+        category: this.el.querySelector('[name="category"]').value,
+        milestoneId: this.el.querySelector('[name="milestoneId"]').value || null,
         discoveryPercent: parseInt(this.el.querySelector('[name="discoveryPercent"]').value),
         executionPercent: 100 - parseInt(this.el.querySelector('[name="discoveryPercent"]').value),
         expectedDate: this.el.querySelector('[name="expectedDate"]').value,
-        percentComplete: parseInt(this.el.querySelector('[name="percentComplete"]').value)
+        percentComplete: parseInt(this.el.querySelector('[name="percentComplete"]').value),
       };
       if (!data.name) {
         this.el.querySelector('[name="name"]').style.borderColor = '#E8422F';
@@ -82,10 +109,7 @@ export class TaskForm {
       onSave(data);
     });
 
-    // Cancel
-    this.el.querySelector('[data-action="cancel"]').addEventListener('click', () => {
-      onCancel();
-    });
+    this.el.querySelector('[data-action="cancel"]').addEventListener('click', () => onCancel());
   }
 
   _esc(str) {

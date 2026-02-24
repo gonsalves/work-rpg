@@ -1,10 +1,9 @@
 import * as THREE from 'three';
-import { PALETTE } from '../utils/Colors.js';
 
 export class SceneManager {
   constructor(canvas) {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xf0f0f0);
+    this.scene.background = new THREE.Color(0x1a1a2e);
 
     // Isometric orthographic camera
     const aspect = window.innerWidth / window.innerHeight;
@@ -25,7 +24,7 @@ export class SceneManager {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
-      alpha: false
+      alpha: false,
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -35,7 +34,6 @@ export class SceneManager {
     this.renderer.toneMappingExposure = 1.2;
 
     this._setupLights();
-    this._buildGroundPlane();
 
     window.addEventListener('resize', () => this._onResize());
   }
@@ -53,10 +51,10 @@ export class SceneManager {
     dirLight.shadow.mapSize.height = 2048;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = 100;
-    dirLight.shadow.camera.left = -30;
-    dirLight.shadow.camera.right = 30;
-    dirLight.shadow.camera.top = 30;
-    dirLight.shadow.camera.bottom = -30;
+    dirLight.shadow.camera.left = -35;
+    dirLight.shadow.camera.right = 35;
+    dirLight.shadow.camera.top = 35;
+    dirLight.shadow.camera.bottom = -35;
     dirLight.shadow.bias = -0.001;
     this.scene.add(dirLight);
 
@@ -66,23 +64,7 @@ export class SceneManager {
     this.scene.add(fillLight);
   }
 
-  _buildGroundPlane() {
-    // Circular green carpet — the primary floor for the entire office
-    const geo = new THREE.CircleGeometry(28, 64);
-    const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(PALETTE.SEVERANCE_CARPET),
-      roughness: 0.95,
-      metalness: 0
-    });
-    const ground = new THREE.Mesh(geo, mat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = 0;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
-  }
-
   _onResize() {
-    // Only resize the renderer; CameraControls handles the camera frustum each frame
     this.renderer.setSize(window.innerWidth, window.innerHeight);
   }
 

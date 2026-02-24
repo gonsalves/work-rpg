@@ -1,9 +1,8 @@
-import { computeEnergyBreakdown } from '../data/EnergyCalculator.js';
+import { computeStaminaBreakdown } from '../data/ResourceCalculator.js';
+import { UnitStateLabels } from '../units/UnitState.js';
 import { CONFIG } from '../utils/Config.js';
 
 function deriveEmail(name, domain) {
-  // "Aprajit Kar" → "aprajit.kar@phonepe.com"
-  // "Elson Jithesh Dsouza" → "elson.jithesh.dsouza@phonepe.com"
   return name.trim().toLowerCase().replace(/\s+/g, '.') + '@' + domain;
 }
 
@@ -11,10 +10,15 @@ export class DetailPanel {
   constructor(container, store) {
     this.store = store;
     this.personId = null;
+    this._unitManagerRef = null;
 
     this.el = document.createElement('div');
     this.el.className = 'detail-panel';
     container.appendChild(this.el);
+  }
+
+  setUnitManager(unitManager) {
+    this._unitManagerRef = unitManager;
   }
 
   open(personId) {
@@ -41,11 +45,19 @@ export class DetailPanel {
       return;
     }
 
-    const breakdown = computeEnergyBreakdown(person);
-    const energyPct = Math.round(breakdown.total * 100);
+    const tasks = this.store.getTasksForPerson(this.personId);
+    const breakdown = computeStaminaBreakdown(tasks);
+    const staminaPct = Math.round(breakdown.total * 100);
     const timePct = Math.round(breakdown.timeFactor * 100);
     const phasePct = Math.round(breakdown.phaseFactor * 100);
     const discoveryPct = Math.round(breakdown.discoveryRatio * 100);
+
+    // Unit state
+    let activityLabel = 'Idle';
+    if (this._unitManagerRef) {
+      const sm = this._unitManagerRef.getUnitState(this.personId);
+      if (sm) activityLabel = sm.getLabel();
+    }
 
     // Action button data
     const email = deriveEmail(person.name, CONFIG.EMAIL_DOMAIN);
@@ -64,6 +76,13 @@ export class DetailPanel {
         <div>
           <div class="detail-name">${person.name}</div>
           <div class="detail-role">${person.role}</div>
+        </div>
+      </div>
+
+      <div class="detail-section">
+        <div class="detail-section-title">Current Activity</div>
+        <div style="padding:8px 12px;background:rgba(0,0,0,0.03);border-radius:6px;font-size:13px;color:#333;">
+          ${activityLabel}
         </div>
       </div>
 
@@ -95,46 +114,47 @@ export class DetailPanel {
       </div>
 
       <div class="detail-section">
-        <div class="detail-section-title">Overall Energy</div>
+        <div class="detail-section-title">Stamina</div>
         <div class="energy-bar-container">
-          <div class="energy-bar-fill" style="width:${energyPct}%;background:${energyBarColor(breakdown.total)};"></div>
-          <div class="energy-bar-label">${energyPct}%</div>
+          <div class="energy-bar-fill" style="width:${staminaPct}%;background:${staminaBarColor(breakdown.total)};"></div>
+          <div class="energy-bar-label">${staminaPct}%</div>
         </div>
       </div>
 
       <div class="detail-section">
-        <div class="detail-section-title">Energy Breakdown</div>
+        <div class="detail-section-title">Stamina Breakdown</div>
         <div class="energy-breakdown">
           <div class="energy-factor">
-            <div class="energy-factor-label">Time Factor: ${timePct}%</div>
+            <div class="energy-factor-label">Time Pressure: ${timePct}%</div>
             <div class="energy-factor-bar">
-              <div class="energy-factor-fill" style="width:${timePct}%;background:${energyBarColor(breakdown.timeFactor)};"></div>
+              <div class="energy-factor-fill" style="width:${timePct}%;background:${staminaBarColor(breakdown.timeFactor)};"></div>
             </div>
           </div>
           <div class="energy-factor">
-            <div class="energy-factor-label">Phase Balance: ${phasePct}%</div>
+            <div class="energy-factor-label">Scout/Gather Balance: ${phasePct}%</div>
             <div class="energy-factor-bar">
-              <div class="energy-factor-fill" style="width:${phasePct}%;background:${energyBarColor(breakdown.phaseFactor)};"></div>
+              <div class="energy-factor-fill" style="width:${phasePct}%;background:${staminaBarColor(breakdown.phaseFactor)};"></div>
             </div>
           </div>
         </div>
       </div>
 
       <div class="detail-section">
-        <div class="detail-section-title">Phase Balance</div>
+        <div class="detail-section-title">Scout / Gather Balance</div>
         <div class="task-phase-bar" style="height:8px;border-radius:4px;">
           <div class="task-phase-discovery" style="width:${discoveryPct}%;"></div>
           <div class="task-phase-execution" style="width:${100 - discoveryPct}%;"></div>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#999;">
-          <span style="color:#0078D7;">Discovery ${discoveryPct}%</span>
-          <span style="color:#FF6F00;">Execution ${100 - discoveryPct}%</span>
+          <span style="color:#0078D7;">Scout ${discoveryPct}%</span>
+          <span style="color:#FF6F00;">Gather ${100 - discoveryPct}%</span>
         </div>
       </div>
 
       <div class="detail-section">
-        <div class="detail-section-title">Tasks (${person.tasks.length})</div>
-        ${person.tasks.map(task => this._renderTask(task, breakdown)).join('')}
+        <div class="detail-section-title">Resources (${tasks.length})</div>
+        ${tasks.map(task => this._renderTask(task, breakdown)).join('')}
+        ${tasks.length === 0 ? '<div style="color:#999;font-size:12px;">No tasks assigned</div>' : ''}
       </div>
     `;
 
@@ -153,17 +173,26 @@ export class DetailPanel {
 
   _renderTask(task, breakdown) {
     const taskBreakdown = breakdown.perTask.find(t => t.taskId === task.id);
-    const daysUntilDue = taskBreakdown ? taskBreakdown.daysUntilDue : 0;
-    const isOverdue = daysUntilDue < 0;
-    const dateLabel = isOverdue
-      ? `${Math.abs(daysUntilDue)} days overdue`
-      : daysUntilDue === 0
-        ? 'Due today'
-        : `${daysUntilDue} days remaining`;
+    const daysUntilDue = taskBreakdown ? taskBreakdown.daysUntilDue : null;
+    const isOverdue = daysUntilDue !== null && daysUntilDue < 0;
+    const dateLabel = daysUntilDue === null
+      ? 'No due date'
+      : isOverdue
+        ? `${Math.abs(daysUntilDue)} days overdue`
+        : daysUntilDue === 0
+          ? 'Due today'
+          : `${daysUntilDue} days remaining`;
+
+    const categoryBadge = task.category
+      ? `<span style="background:rgba(0,120,215,0.1);color:#0078D7;padding:2px 6px;border-radius:4px;font-size:10px;">${task.category}</span>`
+      : '';
 
     return `
       <div class="task-item">
-        <div class="task-name">${task.name}</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="task-name">${task.name}</div>
+          ${categoryBadge}
+        </div>
         ${task.description ? `<div class="task-desc">${task.description}</div>` : ''}
         <div class="task-phase-bar">
           <div class="task-phase-discovery" style="width:${task.discoveryPercent}%;"></div>
@@ -181,7 +210,7 @@ export class DetailPanel {
   }
 }
 
-function energyBarColor(value) {
+function staminaBarColor(value) {
   if (value > 0.65) return '#4CAF50';
   if (value > 0.35) return '#FFC107';
   return '#E8422F';

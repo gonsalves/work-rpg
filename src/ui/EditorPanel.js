@@ -1,6 +1,6 @@
 import { TaskForm } from './TaskForm.js';
 import { PALETTE } from '../utils/Colors.js';
-import { computeEnergy } from '../data/EnergyCalculator.js';
+import { computeUnitStamina } from '../data/ResourceCalculator.js';
 
 export class EditorPanel {
   constructor(container, store) {
@@ -47,7 +47,6 @@ export class EditorPanel {
       this._showPersonForm();
     });
 
-    // Person headers (expand/collapse)
     this.el.querySelectorAll('.person-header').forEach(header => {
       header.addEventListener('click', (e) => {
         if (e.target.closest('button')) return;
@@ -57,7 +56,6 @@ export class EditorPanel {
       });
     });
 
-    // Edit person buttons
     this.el.querySelectorAll('[data-action="edit-person"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -65,7 +63,6 @@ export class EditorPanel {
       });
     });
 
-    // Delete person buttons
     this.el.querySelectorAll('[data-action="delete-person"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -73,31 +70,29 @@ export class EditorPanel {
       });
     });
 
-    // Add task buttons
     this.el.querySelectorAll('[data-action="add-task"]').forEach(btn => {
       btn.addEventListener('click', () => {
         this._showTaskForm(btn.dataset.personId);
       });
     });
 
-    // Edit task buttons
     this.el.querySelectorAll('[data-action="edit-task"]').forEach(btn => {
       btn.addEventListener('click', () => {
         this._showTaskForm(btn.dataset.personId, btn.dataset.taskId);
       });
     });
 
-    // Delete task buttons
     this.el.querySelectorAll('[data-action="delete-task"]').forEach(btn => {
       btn.addEventListener('click', () => {
-        this.store.removeTask(btn.dataset.personId, btn.dataset.taskId);
+        this.store.removeTask(btn.dataset.taskId);
       });
     });
   }
 
   _renderPerson(person) {
-    const energy = computeEnergy(person);
-    const energyPct = Math.round(energy * 100);
+    const tasks = this.store.getTasksForPerson(person.id);
+    const stamina = computeUnitStamina(tasks);
+    const staminaPct = Math.round(stamina * 100);
     const isExpanded = this.expandedPersonId === person.id;
 
     return `
@@ -106,13 +101,13 @@ export class EditorPanel {
           <div class="person-color-swatch" style="background:${person.color};"></div>
           <div class="person-info">
             <div class="person-info-name">${person.name}</div>
-            <div class="person-info-role">${person.role} &middot; ${person.tasks.length} task${person.tasks.length !== 1 ? 's' : ''} &middot; ${energyPct}% energy</div>
+            <div class="person-info-role">${person.role} &middot; ${tasks.length} task${tasks.length !== 1 ? 's' : ''} &middot; ${staminaPct}% stamina</div>
           </div>
           <button class="btn btn-ghost btn-small" data-action="edit-person" data-person-id="${person.id}">Edit</button>
           <button class="btn btn-danger btn-small" data-action="delete-person" data-person-id="${person.id}">&times;</button>
         </div>
         <div class="person-tasks ${isExpanded ? 'expanded' : ''}">
-          ${person.tasks.map(t => this._renderTaskRow(person.id, t)).join('')}
+          ${tasks.map(t => this._renderTaskRow(person.id, t)).join('')}
           <button class="btn btn-ghost btn-small" data-action="add-task" data-person-id="${person.id}" style="margin-top:8px;">+ Add Task</button>
           <div class="task-form-container" data-person-id="${person.id}"></div>
         </div>
@@ -121,19 +116,26 @@ export class EditorPanel {
   }
 
   _renderTaskRow(personId, task) {
+    const categoryBadge = task.category
+      ? `<span style="background:rgba(0,120,215,0.1);color:#0078D7;padding:1px 5px;border-radius:3px;font-size:10px;">${task.category}</span>`
+      : '';
+
     return `
       <div class="task-item" style="display:flex;align-items:center;gap:8px;">
         <div style="flex:1;">
-          <div class="task-name" style="font-size:13px;">${task.name}</div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div class="task-name" style="font-size:13px;">${task.name}</div>
+            ${categoryBadge}
+          </div>
           <div style="display:flex;gap:12px;font-size:11px;color:#999;">
             <span>${task.percentComplete}% done</span>
             <span style="color:#0078D7;">D:${task.discoveryPercent}%</span>
             <span style="color:#FF6F00;">E:${task.executionPercent}%</span>
-            <span>${task.expectedDate}</span>
+            <span>${task.expectedDate || 'No date'}</span>
           </div>
         </div>
         <button class="btn btn-ghost btn-small" data-action="edit-task" data-person-id="${personId}" data-task-id="${task.id}">Edit</button>
-        <button class="btn btn-danger btn-small" data-action="delete-task" data-person-id="${personId}" data-task-id="${task.id}">&times;</button>
+        <button class="btn btn-danger btn-small" data-action="delete-task" data-task-id="${task.id}">&times;</button>
       </div>
     `;
   }
@@ -189,39 +191,33 @@ export class EditorPanel {
       overlay.remove();
     });
 
-    form.querySelector('[data-action="cancel"]').addEventListener('click', () => {
-      overlay.remove();
-    });
-
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) overlay.remove();
-    });
+    form.querySelector('[data-action="cancel"]').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   }
 
   _showTaskForm(personId, taskId = null) {
-    const person = this.store.getPerson(personId);
-    if (!person) return;
-    const task = taskId ? person.tasks.find(t => t.id === taskId) : null;
+    const task = taskId ? this.store.getTask(taskId) : null;
 
     const container = this.el.querySelector(`.task-form-container[data-person-id="${personId}"]`);
     if (!container) return;
-
-    // Clear any existing form
     container.innerHTML = '';
+
+    const milestones = this.store.getMilestones();
+    const resourceTypes = this.store.getResourceTypes();
 
     const form = new TaskForm(
       task,
+      milestones,
+      resourceTypes,
       (data) => {
         if (taskId) {
-          this.store.updateTask(personId, taskId, data);
+          this.store.updateTask(taskId, data);
         } else {
-          this.store.addTask(personId, data);
+          this.store.addTask({ ...data, assigneeId: personId });
         }
         container.innerHTML = '';
       },
-      () => {
-        container.innerHTML = '';
-      }
+      () => { container.innerHTML = ''; }
     );
 
     container.appendChild(form.getElement());
