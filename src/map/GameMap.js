@@ -10,12 +10,14 @@ const TILE_COLORS = {
 };
 
 export class GameMap {
-  constructor(gameGrid) {
+  constructor(gameGrid, textures = null) {
     this.grid = gameGrid;
     this.group = new THREE.Group();
     this._tileMeshes = new Map(); // "col,row" -> mesh
     this._resourceNodeGroups = new Map(); // taskId -> THREE.Group
     this._structureGroups = new Map(); // milestoneId -> THREE.Group
+    this._textures = textures;
+    this._waterMaterial = null;
 
     this._buildTerrain();
   }
@@ -36,11 +38,15 @@ export class GameMap {
     }
 
     for (const [type, tiles] of Object.entries(byType)) {
+      const texture = this._textures ? this._textures[type] : null;
       const mat = new THREE.MeshStandardMaterial({
-        color: TILE_COLORS[type] || 0x888888,
+        color: texture ? 0xffffff : (TILE_COLORS[type] || 0x888888),
+        map: texture || null,
         roughness: 0.9,
         metalness: 0,
       });
+      if (type === TileType.WATER) this._waterMaterial = mat;
+
       const instanced = new THREE.InstancedMesh(tileGeo, mat, tiles.length);
       instanced.receiveShadow = true;
 
@@ -222,6 +228,14 @@ export class GameMap {
       });
     }
     return pickables;
+  }
+
+  update(dt) {
+    // Gently scroll water texture for a flowing effect
+    if (this._waterMaterial && this._waterMaterial.map) {
+      this._waterMaterial.map.offset.x += dt * 0.02;
+      this._waterMaterial.map.offset.y += dt * 0.01;
+    }
   }
 
   getGroup() { return this.group; }

@@ -17,6 +17,7 @@ import { DetailPanel } from './ui/DetailPanel.js';
 import { CONFIG } from './utils/Config.js';
 import { resourceColorForCategory } from './utils/Colors.js';
 import { computeStructureProgress } from './data/ResourceCalculator.js';
+import { generateTerrainTextures } from './map/TextureGenerator.js';
 
 async function boot() {
   const canvas = document.getElementById('scene');
@@ -50,8 +51,11 @@ async function boot() {
   const milestones = store.getMilestones();
   const structurePositions = terrainGen.placeStructures(grid, milestones);
 
+  // --- Terrain textures ---
+  const terrainTextures = generateTerrainTextures();
+
   // --- Map renderer ---
-  const gameMap = new GameMap(grid);
+  const gameMap = new GameMap(grid, terrainTextures);
   const offset = gameMap.centerOffset();
   gameMap.getGroup().position.set(offset.x, 0, offset.z);
   scene.add(gameMap.getGroup());
@@ -117,6 +121,7 @@ async function boot() {
 
     cameraControls.update(dt);
     unitManager.update(dt);
+    gameMap.update(dt);
     fog.update(dt);
     sceneManager.render();
   }
